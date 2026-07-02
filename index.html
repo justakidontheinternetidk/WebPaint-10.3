@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <title>WebPaint Studio v10.3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --app-font: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, ui-sans-serif, system-ui, -apple-system, sans-serif;
+        }
+        html, body {
+            font-family: var(--app-font) !important;
+        }
+        /* Force the same font stack across every UI element, regardless of orientation or Tailwind defaults */
+        button, input, select, textarea, h1, h2, h3, p, span, div, label {
+            font-family: var(--app-font);
+        }
+        .glass-panel {
+            background: var(--glass-bg, rgba(15, 23, 42, 0.75));
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+            box-shadow: 0 25px 50px -12px var(--shadow-color, rgba(0,0,0,0.4));
+            transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1), border 0.4s, box-shadow 0.4s;
+        }
+        
+        .theme-dark {
+            --bg-main: #020617;
+            --bg-workspace: #090d16;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-ui: rgba(255, 255, 255, 0.08);
+            --glass-bg: rgba(15, 23, 42, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --grid-color: #1e293b;
+            --shadow-color: rgba(0, 0, 0, 0.6);
+            --canvas-ring: rgba(99, 102, 241, 0.2);
+            --start-bg: #020617;
+            --start-text: #f8fafc;
+            --start-sub: #94a3b8;
+            --start-btn-bg: rgba(15,23,42,0.6);
+            --start-btn-border: rgba(99,102,241,0.3);
+            --start-btn-text: #ffffff;
+            --start-saves-text: #a5b4fc;
+            --start-bar-bg: #0f172a;
+        }
+        .theme-light {
+            --bg-main: #cbd5e1;
+            --bg-workspace: #e2e8f0;
+            --text-main: #0f172a;       
+            --text-muted: #475569;     
+            --border-ui: rgba(15, 23, 42, 0.08);
+            --glass-bg: rgba(255, 255, 255, 0.85);
+            --glass-border: rgba(15, 23, 42, 0.12);
+            --grid-color: #94a3b8;
+            --shadow-color: rgba(15, 23, 42, 0.12);
+            --canvas-ring: rgba(15, 23, 42, 0.05);
+            --start-bg: #e2e8f0;
+            --start-text: #0f172a;
+            --start-sub: #475569;
+            --start-btn-bg: rgba(255,255,255,0.7);
+            --start-btn-border: rgba(99,102,241,0.4);
+            --start-btn-text: #1e293b;
+            --start-saves-text: #4f46e5;
+            --start-bar-bg: rgba(203,213,225,0.8);
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            transition: background-color 0.4s ease, color 0.4s ease;
+        }
+        .canvas-viewport {
+            background-image: radial-gradient(var(--grid-color) 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+            background-color: var(--bg-workspace);
+            cursor: var(--workspace-cursor, default);
+        }
+        
+        .dynamic-text-main { color: var(--text-main); }
+        .dynamic-text-muted { color: var(--text-muted); }
+
+        @keyframes popIn { 0% { transform: translateY(10px) scale(0.96); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+        @keyframes pulseGlow { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(99, 102, 241, 0.4)); } 50% { transform: scale(1.04); filter: drop-shadow(0 0 35px rgba(236, 72, 153, 0.5)); } }
+        @keyframes fillProgress { 0% { width: 0%; } 100% { width: 100%; } }
+
+        .animate-pop { animation: popIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-logo { animation: pulseGlow 3s infinite ease-in-out; }
+        .loading-bar { animation: fillProgress 1.2s ease-out forwards; }
+
+        .animated-btn {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            color: var(--text-main);
+        }
+        .animated-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px -6px rgba(99, 102, 241, 0.3);
+        }
+        .animated-btn:active {
+            transform: translateY(1px) scale(0.96);
+        }
+
+        .shape-preset { 
+            cursor: grab; 
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
+            color: var(--text-main);
+        }
+        .shape-preset:hover { 
+            transform: translateY(-2px) scale(1.02); 
+            background: rgba(99, 102, 241, 0.15);
+        }
+        .shape-preset:active { cursor: grabbing; transform: scale(0.97); }
+
+        .tool-btn { 
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
+            color: var(--text-muted); 
+        }
+        .tool-btn:hover:not(.active) { 
+            background: rgba(99, 102, 241, 0.12); 
+            color: var(--text-main);
+            transform: translateY(-2px);
+        }
+        .tool-btn:active {
+            transform: scale(0.95);
+        }
+        .tool-btn.active { 
+            color: var(--text-main); 
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(236, 72, 153, 0.1));
+            box-shadow: inset 0 0 0 1.5px rgba(99, 102, 241, 0.4);
+        }
+
+        .save-slot-card {
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .save-slot-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-1px);
+        }
+
+        #savesModal {
+            background: rgba(2, 6, 23, 0.92);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+        }
+
+        .saves-scroll::-webkit-scrollbar { width: 5px; }
+        .saves-scroll::-webkit-scrollbar-track { background: transparent; }
+        .saves-scroll::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.35); border-radius: 99px; }
+        kbd.kbd {
+            display:inline-flex;align-items:center;justify-content:center;
+            min-width:1.55rem;height:1.55rem;padding:0 0.3rem;
+            background:rgba(99,102,241,0.13);border:1px solid rgba(99,102,241,0.35);
+            border-radius:0.3rem;font-size:9px;font-weight:900;
+            color:#a5b4fc;font-family:ui-monospace,monospace;white-space:nowrap;
+        }
+        /* text tool cursor */
+        .cursor-text-tool { cursor: text !important; }
+
+        @keyframes shatterIn {
+            0%   { opacity: 0; transform: scale(1.04); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes screenShake {
+            0%,100% { transform: translate(0,0) rotate(0deg); }
+            15%     { transform: translate(-6px, 4px) rotate(-0.5deg); }
+            30%     { transform: translate(6px, -5px) rotate(0.4deg); }
+            45%     { transform: translate(-4px, 6px) rotate(-0.3deg); }
+            60%     { transform: translate(5px, -3px) rotate(0.3deg); }
+            75%     { transform: translate(-3px, 2px) rotate(-0.2deg); }
+        }
+
+        @keyframes modalIn {
+            0% { opacity: 0; transform: scale(0.94) translateY(12px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-pop { animation: modalIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        /* ── Save Preview Lightbox ── */
+        #savePreviewOverlay {
+            background: rgba(2, 6, 23, 0.96);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+        }
+        @keyframes previewIn {
+            0%   { opacity: 0; transform: scale(0.88); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        #savePreviewBox { animation: previewIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        input[type="color"] {
+            border-radius: 1rem;
+            overflow: hidden;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+            border-radius: 1rem;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 0.875rem;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 99px;
+            background: currentColor;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        .sidebar-scroll::-webkit-scrollbar { width: 5px; }
+        .sidebar-scroll::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-scroll::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.3); border-radius: 99px; }
+
+        /* ═══════════════════════════════════════════
+           PORTRAIT / MOBILE LAYOUT
+           Triggered when window height > width (portrait)
+        ═══════════════════════════════════════════ */
+        @keyframes drawerUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+        @keyframes drawerDown {
+            from { transform: translateY(0);    opacity: 1; }
+            to   { transform: translateY(100%); opacity: 0; }
+        }
+
+        /* ── Responsive scaling ── */
+        :root {
+            --sidebar-w: clamp(220px, 22vw, 320px);
+            --header-h: clamp(52px, 7vh, 68px);
+            --header-top: clamp(8px, 1.2vh, 16px);
+            --header-side: clamp(8px, 1.5vw, 24px);
+            --sidebar-left: clamp(8px, 1.5vw, 24px);
+            --sidebar-top: calc(var(--header-h) + var(--header-top) + clamp(8px, 1vh, 16px));
+        }
+
+        /* Header scales with viewport */
+        header#mainHeader {
+            top: var(--header-top);
+            left: var(--header-side);
+            right: var(--header-side);
+            height: var(--header-h);
+            padding: 0 clamp(12px, 2vw, 28px);
+        }
+
+        /* Sidebar scales with viewport */
+        aside#desktopSidebar {
+            width: var(--sidebar-w);
+            left: var(--sidebar-left);
+            top: var(--sidebar-top);
+            bottom: var(--header-side);
+            padding: clamp(12px, 1.5vw, 24px);
+            gap: clamp(10px, 1.2vh, 20px);
+        }
+
+        /* Hide button text labels at narrower widths */
+        @media (max-width: 900px) {
+            header#mainHeader .header-label { display: none !important; }
+            header#mainHeader .animated-btn { padding-left: 10px; padding-right: 10px; }
+        }
+
+        /* Tighten sidebar text at narrow widths */
+        @media (max-width: 800px) {
+            aside#desktopSidebar { font-size: 11px; }
+        }
+
+        /* Portrait: override header positioning back to full-width */
+        body.portrait header#mainHeader {
+            top: 0; left: 0; right: 0;
+            border-radius: 0 0 1.25rem 1.25rem;
+            padding: 0 1rem;
+            height: 52px;
+        }
+        /* ── Portrait: hide the desktop sidebar ── */
+        body.portrait aside#desktopSidebar { display: none !important; }
+        body.portrait header#mainHeader .header-label { display: none; }
+        body.portrait header#mainHeader .header-icon-only { display: flex !important; }
+
+        /* ── Portrait: bottom toolbar pill ── */
+        #mobileBottomBar {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            z-index: 40;
+            padding: 0 clamp(6px, 2vw, 14px);
+            padding-bottom: max(8px, env(safe-area-inset-bottom));
+        }
+        body.portrait #mobileBottomBar { display: block; }
+
+        .mobile-bar-inner {
+            background: var(--glass-bg);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid var(--glass-border);
+            border-radius: clamp(1rem, 4vw, 1.5rem);
+            box-shadow: 0 -8px 30px -8px rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            padding: clamp(4px, 1.2vw, 8px) clamp(2px, 1vw, 6px);
+            gap: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .mob-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: clamp(1px, 0.5vw, 3px);
+            padding: clamp(4px, 1.2vw, 7px) clamp(2px, 1vw, 6px);
+            border-radius: clamp(0.6rem, 2vw, 1rem);
+            border: none;
+            flex: 1 1 0;
+            min-width: 0;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: clamp(7px, 2vw, 10px);
+            font-weight: 800;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .mob-btn svg {
+            width: clamp(14px, 4.5vw, 20px);
+            height: clamp(14px, 4.5vw, 20px);
+            flex-shrink: 0;
+        }
+        .mob-btn:active { transform: scale(0.9); }
+        .mob-btn.active {
+            background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(236,72,153,0.1));
+            color: var(--text-main);
+            box-shadow: inset 0 0 0 1.5px rgba(99,102,241,0.4);
+        }
+        .mob-btn.active svg { stroke: #818cf8; }
+
+        /* ── Drawer overlay ── */
+        #mobileDrawer {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+        }
+        body.portrait #mobileDrawer { display: block; }
+
+        #mobileDrawer.closed { pointer-events: none; }
+        #drawerBackdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(2,6,23,0.6);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #mobileDrawer:not(.closed) #drawerBackdrop { opacity: 1; }
+
+        #drawerPanel {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            max-height: 72vh;
+            background: var(--glass-bg);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.75rem 1.75rem 0 0;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #mobileDrawer:not(.closed) #drawerPanel { transform: translateY(0); }
+
+        .drawer-scroll::-webkit-scrollbar { width: 4px; }
+        .drawer-scroll::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 99px; }
+
+        /* Portrait: canvas initial position is set by JS (portraitOffsetX/Y) so pan works */
+
+        /* Saves grid: 1-col portrait phone → 2-col landscape/tablet → 3-col desktop */
+        #saveSlotsGrid {
+            grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 36vw, 220px), 1fr)) !important;
+        }
+    </style>
+</head>
+<body class="theme-dark h-screen w-screen flex flex-col overflow-hidden select-none relative">
+
+    <div id="startScreen" class="fixed inset-0 z-50 flex flex-col items-center justify-center transition-all duration-500 ease-in-out" style="background:var(--start-bg, #020617)">
+        <button id="startScreenThemeBtn" class="absolute top-5 right-5 text-xs font-black px-4 py-2 rounded-full transition-all border" style="color:var(--start-sub);background:var(--start-btn-bg);border-color:var(--start-btn-border)">☀️ Light Mode</button>
+        <div class="animate-logo w-20 h-20 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-[2rem] mb-6 flex items-center justify-center shadow-2xl">
+            <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+            </svg>
+        </div>
+        <h1 id="startTitle" class="text-4xl font-black tracking-tight mb-2" style="color:var(--start-text)">WebPaint Studio</h1>
+        <p id="startSubtitle" class="text-xs mb-6" style="color:var(--start-sub)">v10.3 — Setting up your private drawing app...</p>
+        
+        <div id="loadingInterface" class="w-48 mb-4">
+            <div class="h-2 w-full rounded-full overflow-hidden p-0.5" style="background:var(--start-bar-bg)">
+                <div class="loading-bar h-full bg-gradient-to-r from-indigo-500 to-pink-500 rounded-full"></div>
+            </div>
+        </div>
+        
+        <div id="startBtns" style="display:none;flex-direction:column;align-items:center;gap:12px">
+            <button id="launchBtn" class="glass-panel font-bold py-3.5 px-10 rounded-full transition transform active:scale-95 text-sm border shadow-lg" style="color:var(--start-btn-text);border-color:var(--start-btn-border)">
+                Start Painting
+            </button>
+            <button id="openSavesBtn" class="glass-panel font-bold py-3 px-10 rounded-full transition transform active:scale-95 text-sm border shadow-lg flex items-center gap-2" style="color:var(--start-saves-text);border-color:var(--start-btn-border)">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
+                Saves
+            </button>
+        </div>
+    </div>
+
+    <!-- Saves Modal -->
+    <div id="savesModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4">
+        <div class="modal-pop w-full max-w-3xl max-h-[88vh] flex flex-col rounded-[2rem] bg-slate-900/95 border border-indigo-500/20 shadow-2xl overflow-hidden">
+            <!-- Header -->
+            <div class="flex-none flex items-center justify-between px-7 py-5 border-b border-slate-700/40">
+                <div>
+                    <h2 class="text-lg font-black text-white tracking-tight">Your Saved Artworks</h2>
+                    <p class="text-[11px] text-slate-400 mt-0.5">30 save slots — click a thumbnail to load, or save your current canvas</p>
+                </div>
+                <button id="closeSavesBtn" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-all text-lg font-black">✕</button>
+            </div>
+            <!-- Grid -->
+            <div class="saves-scroll flex-1 overflow-y-auto p-5">
+                <div id="saveSlotsGrid" class="grid gap-3">
+                    <!-- slots injected by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════ KEYBOARD SHORTCUTS MODAL ══════════ -->
+    <div id="shortcutsModal" class="fixed inset-0 z-[200] hidden items-center justify-center p-4" style="background:rgba(2,6,23,0.88);backdrop-filter:blur(20px)">
+        <div class="animate-pop w-full max-w-md rounded-[2rem] overflow-hidden border border-amber-500/20" style="background:rgba(15,23,42,0.98);box-shadow:0 30px 60px rgba(0,0,0,0.7)">
+            <div class="flex items-center justify-between px-7 py-5 border-b border-slate-700/40">
+                <div>
+                    <h2 class="text-base font-black text-white">Keyboard Shortcuts</h2>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Mac ⌘ · Windows/Linux Ctrl</p>
+                </div>
+                <button id="closeShortcutsBtn" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-all font-black text-sm">✕</button>
+            </div>
+            <div class="p-6 space-y-5 overflow-y-auto saves-scroll" style="max-height:72vh">
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-2.5">Editing</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Undo</span><div class="flex gap-1 items-center"><kbd class="kbd">⌘/Ctrl</kbd><span class="text-slate-500 text-[10px]">+</span><kbd class="kbd">Z</kbd></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Redo</span><div class="flex gap-1 items-center"><kbd class="kbd">⌘/Ctrl</kbd><span class="text-slate-500 text-[10px]">+</span><kbd class="kbd">Y</kbd></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Export PNG</span><div class="flex gap-1 items-center"><kbd class="kbd">⌘/Ctrl</kbd><span class="text-slate-500 text-[10px]">+</span><kbd class="kbd">S</kbd></div></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Commit / Cancel shape or text</span><kbd class="kbd">Esc</kbd></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-2.5">Tools</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Sharp Pen</span><kbd class="kbd">P</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Rough Pencil</span><kbd class="kbd">N</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Paintbrush</span><kbd class="kbd">B</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Highlighter / Marker</span><kbd class="kbd">M</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Eraser</span><kbd class="kbd">E</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Color Fill</span><kbd class="kbd">F</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Text Tool</span><kbd class="kbd">T</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Pan / Move Canvas</span><kbd class="kbd">Space</kbd></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-2.5">Brush &amp; Canvas</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Increase brush size</span><kbd class="kbd">]</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Decrease brush size</span><kbd class="kbd">[</kbd></div>
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Open this panel</span><kbd class="kbd">?</kbd></div>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-[9px] font-black uppercase tracking-widest text-amber-400 mb-2.5">Images</p>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between"><span class="text-xs text-slate-300">Drop image file onto canvas</span><span class="text-[10px] text-slate-400">→ drag &amp; resize like a shape</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════ TEXT INPUT OVERLAY ══════════ -->
+    <div id="textInputOverlay" style="display:none;position:fixed;z-index:150;">
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start;">
+            <!-- Confirm bar sits above the textarea -->
+            <div style="display:flex;gap:6px;">
+                <button id="textCommitBtn" style="padding:4px 14px;border-radius:99px;font-size:11px;font-weight:900;background:linear-gradient(135deg,#6366f1,#a855f7);color:#fff;border:none;cursor:pointer;box-shadow:0 2px 10px rgba(99,102,241,0.4);white-space:nowrap">✓ Done (Ctrl+↵)</button>
+                <button id="textCancelBtn" style="padding:4px 10px;border-radius:99px;font-size:11px;font-weight:900;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);cursor:pointer">✕</button>
+            </div>
+            <textarea id="textInputArea" rows="1"
+                style="display:block;min-width:160px;min-height:1.4em;padding:4px 8px;
+                       background:rgba(99,102,241,0.06);border:2px dashed rgba(99,102,241,0.5);
+                       border-radius:6px;resize:both;outline:none;overflow:hidden;
+                       line-height:1.3;caret-color:#6366f1;white-space:pre;
+                       box-shadow:0 0 0 4px rgba(99,102,241,0.08);"
+                placeholder="Type here…"></textarea>
+        </div>
+    </div>
+    <div id="savePreviewOverlay" class="fixed inset-0 z-[200] hidden items-center justify-center p-4" onclick="closePreview(event)">
+        <div id="savePreviewBox" class="relative flex flex-col items-center gap-4 w-full max-w-3xl">
+
+            <!-- Top bar: slot label + close -->
+            <div class="w-full flex items-center justify-between px-1">
+                <div>
+                    <span id="previewSlotLabel" class="text-base font-black text-white"></span>
+                    <span id="previewSlotTime" class="ml-2 text-xs text-slate-400"></span>
+                </div>
+                <button onclick="closePreview()" class="w-9 h-9 rounded-full bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-300 hover:text-white text-lg font-black transition-all">✕</button>
+            </div>
+
+            <!-- Image -->
+            <div class="w-full rounded-2xl overflow-hidden shadow-2xl border border-white/10" style="max-height:70vh">
+                <img id="previewImg" src="" class="w-full h-full object-contain" style="max-height:70vh">
+            </div>
+
+            <!-- Action buttons -->
+            <div class="flex items-center gap-3">
+                <button id="previewEditBtn" class="flex items-center gap-2 px-7 py-3 rounded-full font-black text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg transition-all active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                    Edit
+                </button>
+                <button onclick="closePreview()" class="px-7 py-3 rounded-full font-black text-sm border border-slate-600 text-slate-300 hover:text-white hover:border-slate-400 transition-all active:scale-95">
+                    Close
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+<header id="mainHeader" class="fixed glass-panel flex items-center justify-between z-30 rounded-full">
+        <div class="flex items-center gap-3">
+            <span class="text-xl font-black bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent tracking-tight">WebPaint</span>
+            <span class="header-label text-[9px] font-black px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 tracking-wider uppercase">v10.3</span>
+        </div>
+        <div class="flex items-center gap-2.5">
+            <button id="themeToggleBtn" class="animated-btn h-10 px-5 rounded-full border border-slate-700/10 glass-panel text-xs font-black flex items-center gap-2">
+                <span id="themeBtnIcon">☀️</span> <span id="themeBtnText" class="header-label">Light Mode</span>
+            </button>
+            <div class="header-label h-5 w-[1px] bg-slate-500/30 mx-1"></div>
+            <!-- Shortcuts hint -->
+            <button id="shortcutsBtn" class="animated-btn h-10 px-4 text-xs font-black glass-panel rounded-full text-amber-300 flex items-center gap-1.5" title="Keyboard Shortcuts">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2" stroke-width="2"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+                <span class="header-label">Shortcuts</span>
+            </button>
+            <button id="openSavesFromHeader" class="animated-btn h-10 px-4 text-xs font-black glass-panel rounded-full text-indigo-300 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
+                <span class="header-label">Saves</span>
+            </button>
+            <button id="downloadBtn" class="animated-btn h-10 px-4 text-xs font-black glass-panel rounded-full text-emerald-400 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span class="header-label">Export PNG</span>
+            </button>
+            <button id="undoBtn" class="animated-btn h-10 px-4 text-xs font-black glass-panel rounded-full text-slate-300 flex items-center gap-1.5 opacity-40" title="Undo (Ctrl+Z)" disabled>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 010 16H3m0-16l4-4M3 10l4 4"/></svg>
+                <span class="header-label">Undo</span>
+            </button>
+            <button id="redoBtn" class="animated-btn h-10 px-4 text-xs font-black glass-panel rounded-full text-slate-300 flex items-center gap-1.5 opacity-40" title="Redo (Ctrl+Y)" disabled>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 10H11a8 8 0 000 16h10m0-16l-4-4m4 4l-4 4"/></svg>
+                <span class="header-label">Redo</span>
+            </button>
+            <button id="clearBtn" class="animated-btn h-10 px-4 text-xs font-black glass-panel rounded-full text-red-400 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span class="header-label">Erase</span>
+            </button>
+        </div>
+    </header>
+
+    <aside id="desktopSidebar" class="sidebar-scroll fixed rounded-[2rem] glass-panel flex flex-col z-30 animate-pop overflow-y-auto">
+        
+        <div class="flex-none">
+            <h2 class="text-[10px] font-black uppercase tracking-widest dynamic-text-muted mb-2.5">Colors</h2>
+            <div class="grid grid-cols-6 gap-2 mb-2.5">
+                <button class="w-full aspect-square rounded-full bg-black swatch active ring-2 ring-indigo-500 transition-all transform hover:scale-105" data-color="#000000"></button>
+                <button class="w-full aspect-square rounded-full border border-slate-500/40 bg-white swatch transition-all transform hover:scale-105" data-color="#ffffff"></button>
+                <button class="w-full aspect-square rounded-full bg-red-500 swatch transition-all transform hover:scale-105" data-color="#ef4444"></button>
+                <button class="w-full aspect-square rounded-full bg-blue-500 swatch transition-all transform hover:scale-105" data-color="#3b82f6"></button>
+                <button class="w-full aspect-square rounded-full bg-emerald-500 swatch transition-all transform hover:scale-105" data-color="#10b981"></button>
+                <button class="w-full aspect-square rounded-full bg-amber-500 swatch transition-all transform hover:scale-105" data-color="#f59e0b"></button>
+            </div>
+            <input type="color" id="customColor" class="w-full h-9 rounded-2xl bg-transparent cursor-pointer border border-slate-700/30 transition-all hover:border-indigo-400 overflow-hidden" value="#000000">
+        </div>
+
+        <div class="flex-none space-y-3.5 bg-slate-500/10 p-4 rounded-[1.5rem] border border-slate-700/20">
+            <div>
+                <div class="flex justify-between text-[11px] font-bold mb-1">
+                    <span class="dynamic-text-muted">Brush Size</span> <span id="thicknessValue" class="text-indigo-400 font-extrabold">6px</span>
+                </div>
+                <input type="range" id="thicknessSlider" min="2" max="80" value="6" class="w-full accent-indigo-400 text-indigo-400 h-1.5 rounded-full bg-slate-700/40 appearance-none cursor-pointer">
+            </div>
+            <div>
+                <div class="flex justify-between text-[11px] font-bold mb-1">
+                    <span class="dynamic-text-muted">Transparency</span> <span id="opacityValue" class="text-pink-400 font-extrabold">100%</span>
+                </div>
+                <input type="range" id="opacitySlider" min="5" max="100" value="100" class="w-full accent-pink-400 text-pink-400 h-1.5 rounded-full bg-slate-700/40 appearance-none cursor-pointer">
+            </div>
+            <div id="pencilDensityContainer" class="opacity-30 transition-all">
+                <div class="flex justify-between text-[11px] font-bold mb-1">
+                    <span class="dynamic-text-muted">Pencil Texture Density</span> <span id="densityValue" class="text-amber-400 font-extrabold">50%</span>
+                </div>
+                <input type="range" id="densitySlider" min="10" max="100" value="50" disabled class="w-full accent-amber-400 text-amber-400 h-1.5 rounded-full bg-slate-700/40 appearance-none cursor-not-allowed disabled:opacity-20">
+            </div>
+        </div>
+
+        <div class="flex-none">
+            <h2 class="text-[10px] font-black uppercase tracking-widest dynamic-text-muted mb-2.5">Drawing Brushes</h2>
+            
+            <button class="tool-btn w-full mb-2 flex items-center justify-center py-3 rounded-full border border-slate-700/10 font-bold text-xs gap-2" data-tool="dragspace">
+                ✋ Move Around Canvas (Pan)
+            </button>
+
+            <div class="grid grid-cols-2 gap-2 mb-2">
+                <button class="tool-btn flex flex-col p-3 rounded-[1.25rem] border border-slate-700/10 text-center" data-tool="pencil">
+                    <span class="text-xs font-bold w-full">Rough Pencil</span>
+                </button>
+                <button class="tool-btn active flex flex-col p-3 rounded-[1.25rem] border border-indigo-500/20 text-center" data-tool="pen">
+                    <span class="text-xs font-bold w-full">Sharp Pen</span>
+                </button>
+                <button class="tool-btn flex flex-col p-3 rounded-[1.25rem] border border-slate-700/10 text-center" data-tool="paintbrush">
+                    <span class="text-xs font-bold w-full">Paintbrush</span>
+                </button>
+                <button class="tool-btn flex flex-col p-3 rounded-[1.25rem] border border-slate-700/10 text-center" data-tool="marker">
+                    <span class="text-xs font-bold w-full">Highlighter</span>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+                <button class="tool-btn py-3 text-center rounded-full border border-slate-700/10 text-xs font-bold flex items-center justify-center gap-1.5" data-tool="fillbucket">🪣 Color Fill</button>
+                <button class="tool-btn py-3 text-center rounded-full border border-slate-700/10 text-xs font-bold flex items-center justify-center gap-1.5" data-tool="eraser">🧹 Eraser Tool</button>
+            </div>
+            <div class="mt-2">
+                <button class="tool-btn w-full mb-2 flex items-center justify-center py-3 rounded-full border border-slate-700/10 font-bold text-xs gap-2" data-tool="text">🔤 Text Tool <span class="text-[9px] text-slate-500 font-normal">(click canvas)</span></button>
+            </div>
+            <!-- Font controls — only visible when text active -->
+            <div id="fontControlsPanel" style="display:none" class="mt-2 space-y-2 bg-slate-500/10 p-3 rounded-2xl border border-slate-700/20">
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] font-black uppercase tracking-wider dynamic-text-muted">Size</span>
+                    <span id="fontSizeValue" class="text-[11px] font-extrabold text-violet-400">24px</span>
+                </div>
+                <input type="range" id="fontSizeSlider" min="8" max="120" value="24" class="w-full accent-violet-400 h-1.5 rounded-full cursor-pointer">
+                <select id="fontFamilySelect" class="w-full rounded-xl text-[11px] font-bold px-3 py-1.5 border border-slate-700/30 bg-slate-800/60 dynamic-text-muted cursor-pointer">
+                    <option value="'Inter', sans-serif" selected>Inter (App Default)</option>
+                    <option value="sans-serif">Sans-serif</option>
+                    <option value="serif">Serif</option>
+                    <option value="monospace">Monospace</option>
+                    <option value="cursive">Cursive</option>
+                    <option value="Impact">Impact</option>
+                    <option value="Georgia">Georgia</option>
+                </select>
+                <div class="flex gap-2">
+                    <button id="boldToggleBtn" class="flex-1 py-1.5 rounded-xl border border-slate-700/30 text-[11px] font-black dynamic-text-muted transition-all">B</button>
+                    <button id="italicToggleBtn" class="flex-1 py-1.5 rounded-xl border border-slate-700/30 text-[11px] italic dynamic-text-muted transition-all">I</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-none border-t border-slate-700/30 pt-4">
+            <h2 class="text-[10px] font-black uppercase tracking-widest dynamic-text-muted mb-2.5">Stretchy Shapes (Drag onto canvas)</h2>
+            
+            <div class="bg-slate-500/10 p-3 rounded-[1.25rem] border border-slate-700/20 mb-2.5 space-y-1.5 text-xs">
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="matchBrushColorCheck" checked class="w-4 h-4 accent-indigo-500 rounded-full cursor-pointer">
+                    <label for="matchBrushColorCheck" class="text-[9px] font-black uppercase tracking-wider dynamic-text-muted cursor-pointer">Use Current Color</label>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-1 bg-slate-500/20 p-1 rounded-full border border-slate-700/20 mb-2.5 text-[10px]">
+                <button id="hollowModeBtn" class="py-1.5 rounded-full font-black bg-indigo-600 text-white shadow-lg w-full">Outline</button>
+                <button id="filledModeBtn" class="py-1.5 rounded-full font-black w-full text-slate-300 hover:text-white">Solid Fill</button>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+                <div class="shape-preset p-3 glass-panel border border-slate-700/10 rounded-full text-center bg-slate-500/10" draggable="true" data-shape="rectangle">Box/Rectangle</div>
+                <div class="shape-preset p-3 glass-panel border border-slate-700/10 rounded-full text-center bg-slate-500/10" draggable="true" data-shape="circle">Circle</div>
+                <div class="shape-preset p-3 glass-panel border border-slate-700/10 rounded-full text-center bg-slate-500/10" draggable="true" data-shape="ellipse">Oval/Ellipse</div>
+                <div class="shape-preset p-3 glass-panel border border-slate-700/10 rounded-full text-center bg-slate-500/10" draggable="true" data-shape="triangle">Triangle</div>
+                <div class="shape-preset p-3 glass-panel border border-slate-700/10 rounded-full text-center bg-slate-500/10" draggable="true" data-shape="star">Star</div>
+                <div class="shape-preset p-3 glass-panel rounded-full text-center col-span-1 text-indigo-400 border border-indigo-500/30 bg-slate-500/10" draggable="true" data-shape="line">Straight Line</div>
+            </div>
+            <!-- Image import hint -->
+            <div class="mt-2.5 p-3 rounded-2xl border border-dashed border-violet-500/30 bg-violet-500/5 text-center">
+                <p class="text-[10px] font-bold text-violet-400">🖼️ Drop an image file</p>
+                <p class="text-[9px] text-slate-500 mt-0.5">onto the canvas — move, resize &amp; rotate it like a shape</p>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- ══════════ MOBILE BOTTOM BAR (portrait only) ══════════ -->
+    <div id="mobileBottomBar">
+        <div class="mobile-bar-inner">
+            <!-- Tool quick-select -->
+            <button class="mob-btn mob-tool-btn active" data-tool="pen">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                Pen
+            </button>
+            <button class="mob-btn mob-tool-btn" data-tool="pencil">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                Pencil
+            </button>
+            <button class="mob-btn mob-tool-btn" data-tool="paintbrush">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                Brush
+            </button>
+            <button class="mob-btn mob-tool-btn" data-tool="marker">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                Mark
+            </button>
+            <button class="mob-btn mob-tool-btn" data-tool="eraser">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414 6.414a2 2 0 001.414.586H19a2 2 0 002-2v-3.586a2 2 0 00-.586-1.414L14 5.586a2 2 0 00-1.414-.586H5a2 2 0 00-2 2v3.586A2 2 0 003.586 12H3z"/></svg>
+                Erase
+            </button>
+            <!-- Divider -->
+            <div style="width:1px;height:28px;background:rgba(255,255,255,0.08);flex:0 0 1px;margin:0 clamp(1px,0.5vw,4px)"></div>
+            <!-- Undo / Redo -->
+            <button class="mob-btn" id="mobUndoBtn" disabled>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity:0.4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 010 16H3m0-16l4-4M3 10l4 4"/></svg>
+                <span style="opacity:0.4">Undo</span>
+            </button>
+            <button class="mob-btn" id="mobRedoBtn" disabled>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="opacity:0.4"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 10H11a8 8 0 000 16h10m0-16l-4-4m4 4l-4 4"/></svg>
+                <span style="opacity:0.4">Redo</span>
+            </button>
+            <!-- Color swatch quick-pick (opens color drawer tab) -->
+            <button class="mob-btn" id="mobColorBtn" onclick="openDrawer('colors')">
+                <div id="mobColorDot" style="width:clamp(16px,4.5vw,22px);height:clamp(16px,4.5vw,22px);border-radius:99px;background:#000000;border:2px solid rgba(255,255,255,0.25)"></div>
+                Color
+            </button>
+            <!-- More / full panel -->
+            <button class="mob-btn" onclick="openDrawer('tools')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                More
+            </button>
+        </div>
+    </div>
+
+    <!-- ══════════ MOBILE DRAWER (portrait only) ══════════ -->
+    <div id="mobileDrawer" class="closed">
+        <div id="drawerBackdrop" onclick="closeDrawer()"></div>
+        <div id="drawerPanel">
+            <!-- Drag handle -->
+            <div class="flex-none flex flex-col items-center pt-3 pb-1 cursor-pointer" onclick="closeDrawer()">
+                <div style="width:36px;height:4px;border-radius:99px;background:rgba(255,255,255,0.2)"></div>
+                <span class="text-[9px] font-black uppercase tracking-widest mt-1.5" style="color:var(--text-muted)">tap to close</span>
+            </div>
+            <!-- Tab bar -->
+            <div class="flex-none flex gap-1 px-4 pb-3">
+                <button class="drawer-tab flex-1 py-2 rounded-full text-[11px] font-black text-center transition-all active" data-tab="tools" onclick="switchDrawerTab('tools')">🖌 Tools</button>
+                <button class="drawer-tab flex-1 py-2 rounded-full text-[11px] font-black text-center transition-all" data-tab="colors" onclick="switchDrawerTab('colors')">🎨 Colors</button>
+                <button class="drawer-tab flex-1 py-2 rounded-full text-[11px] font-black text-center transition-all" data-tab="shapes" onclick="switchDrawerTab('shapes')">⬡ Shapes</button>
+                <button class="drawer-tab flex-1 py-2 rounded-full text-[11px] font-black text-center transition-all" data-tab="settings" onclick="switchDrawerTab('settings')">⚙ More</button>
+            </div>
+            <!-- Tab content -->
+            <div class="drawer-scroll flex-1 overflow-y-auto px-4 pb-6">
+
+                <!-- TOOLS TAB -->
+                <div id="tab-tools" class="drawer-tab-panel">
+                    <p class="text-[9px] font-black uppercase tracking-widest mb-2.5" style="color:var(--text-muted)">Drawing Brushes</p>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <button class="tool-btn drawer-tool-btn flex flex-col p-3 rounded-[1.25rem] border border-slate-700/10 text-center text-xs font-bold" data-tool="pencil">Rough Pencil</button>
+                        <button class="tool-btn drawer-tool-btn active flex flex-col p-3 rounded-[1.25rem] border border-indigo-500/20 text-center text-xs font-bold" data-tool="pen">Sharp Pen</button>
+                        <button class="tool-btn drawer-tool-btn flex flex-col p-3 rounded-[1.25rem] border border-slate-700/10 text-center text-xs font-bold" data-tool="paintbrush">Paintbrush</button>
+                        <button class="tool-btn drawer-tool-btn flex flex-col p-3 rounded-[1.25rem] border border-slate-700/10 text-center text-xs font-bold" data-tool="marker">Highlighter</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 mb-4">
+                        <button class="tool-btn drawer-tool-btn py-3 text-center rounded-full border border-slate-700/10 text-xs font-bold flex items-center justify-center gap-1.5" data-tool="fillbucket">🪣 Color Fill</button>
+                        <button class="tool-btn drawer-tool-btn py-3 text-center rounded-full border border-slate-700/10 text-xs font-bold flex items-center justify-center gap-1.5" data-tool="eraser">🧹 Eraser</button>
+                    </div>
+                    <button class="tool-btn drawer-tool-btn w-full mb-4 flex items-center justify-center py-3 rounded-full border border-slate-700/10 font-bold text-xs gap-2" data-tool="dragspace">✋ Move / Pan Canvas</button>
+                    <p class="text-[9px] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Brush Size</p>
+                    <div class="flex justify-between text-[11px] font-bold mb-1">
+                        <span style="color:var(--text-muted)">Size</span><span id="mobThicknessValue" class="text-indigo-400 font-extrabold">6px</span>
+                    </div>
+                    <input type="range" id="mobThicknessSlider" min="2" max="80" value="6" class="w-full accent-indigo-400 h-1.5 rounded-full appearance-none cursor-pointer mb-3" style="background:rgba(99,102,241,0.2)">
+                    <div class="flex justify-between text-[11px] font-bold mb-1">
+                        <span style="color:var(--text-muted)">Transparency</span><span id="mobOpacityValue" class="text-pink-400 font-extrabold">100%</span>
+                    </div>
+                    <input type="range" id="mobOpacitySlider" min="5" max="100" value="100" class="w-full accent-pink-400 h-1.5 rounded-full appearance-none cursor-pointer" style="background:rgba(236,72,153,0.2)">
+                </div>
+
+                <!-- COLORS TAB -->
+                <div id="tab-colors" class="drawer-tab-panel hidden">
+                    <p class="text-[9px] font-black uppercase tracking-widest mb-3" style="color:var(--text-muted)">Quick Colors</p>
+                    <div class="grid grid-cols-8 gap-2 mb-3">
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-black ring-2 ring-indigo-500 transition-all hover:scale-105" data-color="#000000"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-white border border-slate-500/40 transition-all hover:scale-105" data-color="#ffffff"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-red-500 transition-all hover:scale-105" data-color="#ef4444"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-orange-500 transition-all hover:scale-105" data-color="#f97316"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-amber-500 transition-all hover:scale-105" data-color="#f59e0b"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-yellow-400 transition-all hover:scale-105" data-color="#facc15"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-lime-500 transition-all hover:scale-105" data-color="#84cc16"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-emerald-500 transition-all hover:scale-105" data-color="#10b981"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-teal-500 transition-all hover:scale-105" data-color="#14b8a6"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-cyan-500 transition-all hover:scale-105" data-color="#06b6d4"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-blue-500 transition-all hover:scale-105" data-color="#3b82f6"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-indigo-500 transition-all hover:scale-105" data-color="#6366f1"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-violet-500 transition-all hover:scale-105" data-color="#8b5cf6"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-purple-500 transition-all hover:scale-105" data-color="#a855f7"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-pink-500 transition-all hover:scale-105" data-color="#ec4899"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-rose-500 transition-all hover:scale-105" data-color="#f43f5e"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full" style="background:#6b4c2a" data-color="#6b4c2a"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full" style="background:#8B7355" data-color="#8B7355"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-slate-400 transition-all hover:scale-105" data-color="#94a3b8"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-slate-600 transition-all hover:scale-105" data-color="#475569"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-slate-700 transition-all hover:scale-105" data-color="#334155"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full bg-slate-900 transition-all hover:scale-105" data-color="#0f172a"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full" style="background:#ff6b6b" data-color="#ff6b6b"></button>
+                        <button class="mob-swatch w-full aspect-square rounded-full" style="background:#ffd93d" data-color="#ffd93d"></button>
+                    </div>
+                    <p class="text-[9px] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Custom Color</p>
+                    <input type="color" id="mobCustomColor" class="w-full h-10 rounded-2xl bg-transparent cursor-pointer border border-slate-700/30 overflow-hidden" value="#000000">
+                </div>
+
+                <!-- SHAPES TAB -->
+                <div id="tab-shapes" class="drawer-tab-panel hidden">
+                    <p class="text-[9px] font-black uppercase tracking-widest mb-2" style="color:var(--text-muted)">Tap to place on canvas center</p>
+                    <div class="flex items-center gap-2 mb-3">
+                        <input type="checkbox" id="mobMatchBrushColor" checked class="w-4 h-4 accent-indigo-500 cursor-pointer rounded">
+                        <label for="mobMatchBrushColor" class="text-[10px] font-black uppercase tracking-wider cursor-pointer" style="color:var(--text-muted)">Use current color</label>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1 p-1 rounded-full border border-slate-700/20 mb-3 text-[10px]" style="background:rgba(100,116,139,0.1)">
+                        <button id="mobHollowBtn" class="py-1.5 rounded-full font-black bg-indigo-600 text-white w-full text-center">Outline</button>
+                        <button id="mobFilledBtn" class="py-1.5 rounded-full font-black w-full text-center" style="color:var(--text-muted)">Solid Fill</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+                        <button class="mob-shape-btn p-3 rounded-full text-center border border-slate-700/10" style="background:rgba(100,116,139,0.1)" data-shape="rectangle">Box / Rectangle</button>
+                        <button class="mob-shape-btn p-3 rounded-full text-center border border-slate-700/10" style="background:rgba(100,116,139,0.1)" data-shape="circle">Circle</button>
+                        <button class="mob-shape-btn p-3 rounded-full text-center border border-slate-700/10" style="background:rgba(100,116,139,0.1)" data-shape="ellipse">Oval / Ellipse</button>
+                        <button class="mob-shape-btn p-3 rounded-full text-center border border-slate-700/10" style="background:rgba(100,116,139,0.1)" data-shape="triangle">Triangle</button>
+                        <button class="mob-shape-btn p-3 rounded-full text-center border border-slate-700/10" style="background:rgba(100,116,139,0.1)" data-shape="star">Star</button>
+                        <button class="mob-shape-btn p-3 rounded-full text-center text-indigo-400 border border-indigo-500/30" style="background:rgba(100,116,139,0.1)" data-shape="line">Straight Line</button>
+                    </div>
+                </div>
+
+                <!-- SETTINGS / MORE TAB -->
+                <div id="tab-settings" class="drawer-tab-panel hidden">
+                    <div class="space-y-3">
+                        <button onclick="openSavesModal()" class="w-full py-3 rounded-full text-sm font-black text-indigo-300 border border-indigo-500/30 flex items-center justify-center gap-2" style="background:rgba(99,102,241,0.1)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/></svg>
+                            Open Saves
+                        </button>
+                        <button id="mobDownloadBtn" class="w-full py-3 rounded-full text-sm font-black text-emerald-400 border border-emerald-500/30 flex items-center justify-center gap-2" style="background:rgba(16,185,129,0.08)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                            Export as PNG
+                        </button>
+                        <button id="mobClearBtn" class="w-full py-3 rounded-full text-sm font-black text-red-400 border border-red-500/30 flex items-center justify-center gap-2" style="background:rgba(239,68,68,0.08)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            Erase Canvas
+                        </button>
+                        <button id="mobThemeBtn" class="w-full py-3 rounded-full text-sm font-black border border-slate-700/30 flex items-center justify-center gap-2" style="background:rgba(100,116,139,0.1);color:var(--text-main)">
+                            <span id="mobThemeIcon">☀️</span> <span id="mobThemeLabel">Light Mode</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div><!-- end drawer-scroll -->
+        </div><!-- end drawerPanel -->
+    </div><!-- end mobileDrawer -->
+
+    <main class="w-full h-full canvas-viewport relative overflow-hidden z-0">
+        <canvas id="paintCanvas" class="absolute shadow-2xl bg-white rounded-[2rem] transition-transform duration-75" style="box-shadow: 0 0 0 4px var(--canvas-ring), 0 25px 50px -12px rgba(0,0,0,0.5);"></canvas>
+    </main>
+
+    <script>
+        const startScreen = document.getElementById('startScreen'), launchBtn = document.getElementById('launchBtn'), loadingInterface = document.getElementById('loadingInterface');
+        const canvas = document.getElementById('paintCanvas'), ctx = canvas.getContext('2d'), mainContainer = canvas.parentElement;
+        const thicknessSlider = document.getElementById('thicknessSlider'), thicknessValue = document.getElementById('thicknessValue');
+        const opacitySlider = document.getElementById('opacitySlider'), opacityValue = document.getElementById('opacityValue');
+        const densitySlider = document.getElementById('densitySlider'), densityValue = document.getElementById('densityValue'), pencilDensityContainer = document.getElementById('pencilDensityContainer');
+        const customColor = document.getElementById('customColor'), matchBrushColorCheck = document.getElementById('matchBrushColorCheck');
+        const clearBtn = document.getElementById('clearBtn'), downloadBtn = document.getElementById('downloadBtn');
+        const themeToggleBtn = document.getElementById('themeToggleBtn'), themeBtnIcon = document.getElementById('themeBtnIcon'), themeBtnText = document.getElementById('themeBtnText');
+
+        let activeColor = '#000000', activeThickness = 6, globalAlphaMod = 1.0, pencilDensity = 0.5, activeTool = 'pen', shapeMode = 'hollow', currentTheme = 'dark';
+        let isDrawing = false, lastX = 0, lastY = 0;
+
+        let canvasOffsetX = 0, canvasOffsetY = 120;
+        let portraitOffsetX = 8, portraitOffsetY = 60;
+        let isPanningWorkspace = false, panStartX = 0, panStartY = 0;
+
+        let activeShapeObject = null, activeHandle = null, isTransforming = false;
+        let dragStartMouseX = 0, dragStartMouseY = 0;
+        let shapeStartW = 0, shapeStartH = 0, shapeStartX = 0, shapeStartY = 0, shapeStartAngle = 0;
+        let canvasBackupImage = null;
+        const TOTAL_SLOTS = 30;
+
+        // ── Undo / Redo history ──
+        const MAX_HISTORY = 40;
+        let undoStack = [];
+        let redoStack = [];
+        const handleRadius = 6;
+
+        function updateUndoRedoBtns() {
+            const canUndo = undoStack.length > 0;
+            const canRedo = redoStack.length > 0;
+            ['undoBtn','mobUndoBtn'].forEach(id => {
+                const b = document.getElementById(id); if(!b) return;
+                b.disabled = !canUndo;
+                b.style.opacity = canUndo ? '1' : '0.4';
+            });
+            ['redoBtn','mobRedoBtn'].forEach(id => {
+                const b = document.getElementById(id); if(!b) return;
+                b.disabled = !canRedo;
+                b.style.opacity = canRedo ? '1' : '0.4';
+            });
+        }
+
+        function pushUndoState() {
+            undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            if (undoStack.length > MAX_HISTORY) undoStack.shift();
+            redoStack = [];
+            updateUndoRedoBtns();
+        }
+
+        function performUndo() {
+            if (undoStack.length === 0) return;
+            finalizeAndCommitActiveShape();
+            redoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            const state = undoStack.pop();
+            ctx.putImageData(state, 0, 0);
+            canvasBackupImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            updateUndoRedoBtns();
+        }
+
+        function performRedo() {
+            if (redoStack.length === 0) return;
+            finalizeAndCommitActiveShape();
+            undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+            const state = redoStack.pop();
+            ctx.putImageData(state, 0, 0);
+            canvasBackupImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            updateUndoRedoBtns();
+        }
+
+        /* ── START SCREEN ── */
+        setTimeout(() => { 
+            loadingInterface.style.display = 'none';
+            document.getElementById('startSubtitle').style.display = 'none';
+            document.getElementById('startBtns').style.display = 'flex';
+        }, 1000);
+
+        launchBtn.addEventListener('click', () => { 
+            startScreen.classList.add('opacity-0', 'pointer-events-none'); 
+            initializeWorksheetResolution();
+            applyLayout();
+            setTimeout(() => startScreen.remove(), 550);
+        });
+
+        /* ── SAVES MODAL ── */
+        const savesModal = document.getElementById('savesModal');
+        const saveSlotsGrid = document.getElementById('saveSlotsGrid');
+
+        function buildSaveSlotsGrid() {
+            saveSlotsGrid.innerHTML = '';
+            for (let i = 1; i <= TOTAL_SLOTS; i++) {
+                const thumb = localStorage.getItem(`wp_slot_thumb_${i}`);
+                const time  = localStorage.getItem(`wp_slot_time_${i}`);
+                const hasData = !!thumb;
+
+                const card = document.createElement('div');
+                card.className = 'save-slot-card rounded-2xl bg-slate-950/60 p-3 flex flex-col gap-2.5';
+                card.innerHTML = `
+                    <div class="relative w-full aspect-video rounded-xl overflow-hidden bg-slate-800 border border-slate-700/60 ${hasData ? 'cursor-zoom-in' : 'cursor-default'} group" ${hasData ? `onclick="previewSlot(${i})"` : ''}>
+                        ${hasData
+                            ? `<img src="${thumb}" class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105">`
+                            : `<div class="w-full h-full flex items-center justify-center text-[10px] font-bold text-slate-600">Empty</div>`}
+                        ${hasData ? `<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all" style="background:rgba(99,102,241,0.18)"><svg class="w-7 h-7 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg></div>` : ''}
+                    </div>
+                    <div class="flex items-center justify-between gap-1.5">
+                        <div class="min-w-0">
+                            <div class="text-[11px] font-black text-slate-200">Slot #${i}</div>
+                            <div id="slot-time-${i}" class="text-[9px] text-slate-500 truncate">${hasData ? `Saved at ${time}` : 'No artwork saved'}</div>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-shrink-0">
+                            ${hasData ? `<button onclick="editFromSlot(${i})" class="text-[10px] bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white px-2.5 py-1.5 font-bold rounded-full transition-all flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>Edit</button>` : ''}
+                            <button onclick="saveToSlot(${i})" class="text-[10px] bg-slate-700/40 hover:bg-slate-600 text-slate-300 hover:text-white px-2.5 py-1.5 font-bold rounded-full transition-all whitespace-nowrap">Save here</button>
+                        </div>
+                    </div>`;
+                saveSlotsGrid.appendChild(card);
+            }
+        }
+
+        function openSavesModal() {
+            buildSaveSlotsGrid();
+            savesModal.classList.remove('hidden');
+            savesModal.classList.add('flex');
+        }
+        function closeSavesModal() {
+            savesModal.classList.add('hidden');
+            savesModal.classList.remove('flex');
+        }
+
+        document.getElementById('openSavesBtn').addEventListener('click', openSavesModal);
+        document.getElementById('openSavesFromHeader').addEventListener('click', openSavesModal);
+        document.getElementById('closeSavesBtn').addEventListener('click', closeSavesModal);
+        savesModal.addEventListener('click', (e) => { if (e.target === savesModal) closeSavesModal(); });
+
+        function initializeWorksheetResolution() {
+            canvas.width = 1600; canvas.height = 1000;
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            repositionCanvasFrameElement();
+            undoStack = []; redoStack = []; updateUndoRedoBtns();
+            saveCanvasStateToMemory();
+        }
+
+        function repositionCanvasFrameElement() {
+            if (isPortrait()) {
+                canvas.style.left = `${portraitOffsetX}px`;
+                canvas.style.top  = `${portraitOffsetY}px`;
+            } else {
+                canvas.style.left = `${canvasOffsetX}px`;
+                canvas.style.top  = `${canvasOffsetY}px`;
+            }
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            if (currentTheme === 'dark') {
+                document.body.classList.remove('theme-dark'); document.body.classList.add('theme-light');
+                themeBtnIcon.textContent = '🌙'; themeBtnText.textContent = 'Dark Mode'; currentTheme = 'light';
+            } else {
+                document.body.classList.remove('theme-light'); document.body.classList.add('theme-dark');
+                themeBtnIcon.textContent = '☀️'; themeBtnText.textContent = 'Light Mode'; currentTheme = 'dark';
+            }
+            const ssBtn = document.getElementById('startScreenThemeBtn');
+            if (ssBtn) ssBtn.textContent = currentTheme === 'dark' ? '☀️ Light Mode' : '🌙 Dark Mode';
+        });
+
+        document.getElementById('startScreenThemeBtn').addEventListener('click', () => {
+            themeToggleBtn.click();
+        });
+
+        function saveCanvasStateToMemory() {
+            canvasBackupImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+        function restoreCanvasStateFromMemory() { if(canvasBackupImage) ctx.putImageData(canvasBackupImage, 0, 0); }
+
+        function finalizeAndCommitActiveShape() {
+            if (!activeShapeObject) return;
+            restoreCanvasStateFromMemory();
+            drawVectorShape(activeShapeObject, false);
+            activeShapeObject = null; activeHandle = null; isTransforming = false;
+            saveCanvasStateToMemory();
+        }
+
+        /* SAVE SLOTS INFRASTRUCTURE — 30 slots */
+        function saveToSlot(slotId) {
+            finalizeAndCommitActiveShape();
+
+            const tempThumb = document.createElement('canvas');
+            tempThumb.width = 240; tempThumb.height = 135;
+            const tCtx = tempThumb.getContext('2d');
+            tCtx.drawImage(canvas, 0, 0, 240, 135);
+
+            const rawImageBytes = canvas.toDataURL('image/png');
+            const thumbnailBytes = tempThumb.toDataURL('image/jpeg', 0.7);
+            const currentTimestamp = new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'});
+
+            localStorage.setItem(`wp_slot_data_${slotId}`, rawImageBytes);
+            localStorage.setItem(`wp_slot_thumb_${slotId}`, thumbnailBytes);
+            localStorage.setItem(`wp_slot_time_${slotId}`, currentTimestamp);
+
+            // Refresh the modal card in-place
+            buildSaveSlotsGrid();
+        }
+
+        function loadFromSlot(slotId) {
+            const savedData = localStorage.getItem(`wp_slot_data_${slotId}`);
+            if (!savedData) return;
+            finalizeAndCommitActiveShape();
+            const incomingImg = new Image();
+            incomingImg.onload = () => {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(incomingImg, 0, 0);
+                saveCanvasStateToMemory();
+            };
+            incomingImg.src = savedData;
+            closeSavesModal();
+            closePreview();
+            if (startScreen && !startScreen.classList.contains('opacity-0')) {
+                startScreen.classList.add('opacity-0', 'pointer-events-none');
+                initializeWorksheetResolution();
+                applyLayout();
+                setTimeout(() => startScreen.remove(), 550);
+            }
+        }
+
+        /* ── Preview lightbox ── */
+        let previewingSlot = null;
+
+        function previewSlot(slotId) {
+            const fullData = localStorage.getItem(`wp_slot_data_${slotId}`);
+            const time = localStorage.getItem(`wp_slot_time_${slotId}`);
+            if (!fullData) return;
+            previewingSlot = slotId;
+            document.getElementById('previewImg').src = fullData;
+            document.getElementById('previewSlotLabel').textContent = `Slot #${slotId}`;
+            document.getElementById('previewSlotTime').textContent = time ? `· Saved at ${time}` : '';
+            const overlay = document.getElementById('savePreviewOverlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+            // Re-animate the box
+            const box = document.getElementById('savePreviewBox');
+            box.style.animation = 'none';
+            requestAnimationFrame(() => { box.style.animation = ''; });
+        }
+
+        function closePreview(e) {
+            if (e && e.target !== document.getElementById('savePreviewOverlay')) return;
+            document.getElementById('savePreviewOverlay').classList.add('hidden');
+            document.getElementById('savePreviewOverlay').classList.remove('flex');
+            previewingSlot = null;
+        }
+
+        function editFromSlot(slotId) {
+            if (confirm(`Load Slot #${slotId} for editing? Your current canvas will be replaced.`)) {
+                loadFromSlot(slotId);
+            }
+        }
+
+        document.getElementById('previewEditBtn').addEventListener('click', () => {
+            if (previewingSlot !== null) editFromSlot(previewingSlot);
+        });
+
+        // Close preview with Escape
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                document.getElementById('savePreviewOverlay').classList.add('hidden');
+                document.getElementById('savePreviewOverlay').classList.remove('flex');
+                previewingSlot = null;
+            }
+        });
+
+        function configureActiveEngineStyles() {
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.shadowBlur = 0; ctx.globalCompositeOperation = 'source-over';
+            mainContainer.style.setProperty('--workspace-cursor', activeTool === 'dragspace' ? 'grab' : 'default');
+
+            if(activeTool === 'pencil') {
+                pencilDensityContainer.classList.remove('opacity-30'); densitySlider.disabled = false;
+            } else {
+                pencilDensityContainer.classList.add('opacity-30'); densitySlider.disabled = true;
+            }
+
+            if (activeTool === 'eraser') {
+                ctx.lineWidth = activeThickness; ctx.strokeStyle = '#ffffff'; ctx.globalAlpha = globalAlphaMod; return;
+            }
+            
+            ctx.strokeStyle = activeColor;
+            switch (activeTool) {
+                case 'pencil': ctx.lineWidth = activeThickness; ctx.globalAlpha = globalAlphaMod; break;
+                case 'pen': ctx.lineWidth = activeThickness; ctx.globalAlpha = globalAlphaMod; break;
+                case 'paintbrush': ctx.lineWidth = activeThickness; ctx.globalAlpha = 0.18 * globalAlphaMod; ctx.shadowBlur = activeThickness/2; ctx.shadowColor = activeColor; break;
+                case 'marker': ctx.lineWidth = activeThickness; ctx.globalAlpha = 0.45 * globalAlphaMod; break;
+            }
+        }
+
+        function captureCoordinates(e) {
+            const geometry = canvas.getBoundingClientRect();
+            return { x: e.clientX - geometry.left, y: e.clientY - geometry.top };
+        }
+
+        function getLocalHandles(obj) {
+            const hw = obj.w / 2, hh = obj.h / 2;
+            if (obj.type === 'line') {
+                return { 'lineStart': {x: obj.x1, y: obj.y1}, 'lineEnd': {x: obj.x2, y: obj.y2} };
+            }
+            return {
+                'tl': {x: -hw, y: -hh}, 'tm': {x: 0, y: -hh}, 'tr': {x: hw, y: -hh},
+                'mr': {x: hw, y: 0},   'br': {x: hw, y: hh},  'bm': {x: 0, y: hh},
+                'bl': {x: -hw, y: hh}, 'ml': {x: -hw, y: 0},  'rotate': {x: 0, y: -hh - 30},
+                'center': {x: 0, y: 0}
+            };
+        }
+
+        function checkForHandleHit(mx, my, obj) {
+            const handles = getLocalHandles(obj);
+            if (obj.type === 'line') {
+                if (Math.hypot(mx - handles.lineStart.x, my - handles.lineStart.y) < handleRadius + 6) return 'lineStart';
+                if (Math.hypot(mx - handles.lineEnd.x, my - handles.lineEnd.y) < handleRadius + 6) return 'lineEnd';
+                return null;
+            }
+            
+            const rad = obj.rotation;
+            for (let id in handles) {
+                const h = handles[id];
+                const cx = obj.x + (h.x * Math.cos(rad) - h.y * Math.sin(rad));
+                const cy = obj.y + (h.x * Math.sin(rad) + h.y * Math.cos(rad));
+                if (Math.hypot(mx - cx, my - cy) < handleRadius + 6) return id;
+            }
+            return null;
+        }
+
+        function initiateWorkspaceInteraction(e) {
+            if (activeTool === 'dragspace') {
+                isPanningWorkspace = true;
+                mainContainer.style.setProperty('--workspace-cursor', 'grabbing');
+                if (isPortrait()) {
+                    panStartX = e.clientX - portraitOffsetX;
+                    panStartY = e.clientY - portraitOffsetY;
+                } else {
+                    panStartX = e.clientX - canvasOffsetX;
+                    panStartY = e.clientY - canvasOffsetY;
+                }
+                return;
+            }
+
+            const pos = captureCoordinates(e);
+
+            if (activeShapeObject) {
+                const handleHit = checkForHandleHit(pos.x, pos.y, activeShapeObject);
+                if (handleHit) {
+                    activeHandle = handleHit;
+                    isTransforming = true;
+                    dragStartMouseX = e.clientX;
+                    dragStartMouseY = e.clientY;
+                    shapeStartW = activeShapeObject.w;
+                    shapeStartH = activeShapeObject.h;
+                    shapeStartX = activeShapeObject.x;
+                    shapeStartY = activeShapeObject.y;
+                    shapeStartAngle = activeShapeObject.rotation;
+                    return;
+                } else {
+                    pushUndoState();
+                    finalizeAndCommitActiveShape();
+                }
+            }
+
+            if (activeTool === 'fillbucket') {
+                pushUndoState();
+                executeSmartFloodFill(Math.floor(pos.x), Math.floor(pos.y), activeColor);
+                saveCanvasStateToMemory(); return;
+            }
+
+            if (activeTool === 'text') {
+                // If there's an active text session, commit it first
+                if (activeTextSession) commitText();
+                openTextSession(pos.x, pos.y);
+                return;
+            }
+
+            pushUndoState();
+            isDrawing = true; lastX = pos.x; lastY = pos.y;
+            configureActiveEngineStyles();
+            if(activeTool === 'pencil') {
+                renderPencilTextureSegment(lastX, lastY, pos.x, pos.y);
+            } else if (activeTool !== 'fillbucket') {
+                ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+            }
+        }
+
+        function trackWorkspaceInteraction(e) {
+            if (isPanningWorkspace) {
+                if (isPortrait()) {
+                    portraitOffsetX = e.clientX - panStartX;
+                    portraitOffsetY = e.clientY - panStartY;
+                } else {
+                    canvasOffsetX = e.clientX - panStartX;
+                    canvasOffsetY = e.clientY - panStartY;
+                }
+                repositionCanvasFrameElement();
+                return;
+            }
+
+            const pos = captureCoordinates(e);
+
+            if (activeShapeObject && isTransforming) {
+                const obj = activeShapeObject;
+                const dx = e.clientX - dragStartMouseX;
+                const dy = e.clientY - dragStartMouseY;
+
+                if (obj.type === 'line') {
+                    if (activeHandle === 'lineStart') { obj.x1 = pos.x; obj.y1 = pos.y; }
+                    if (activeHandle === 'lineEnd') { obj.x2 = pos.x; obj.y2 = pos.y; }
+                } else if (activeHandle === 'center') {
+                    obj.x = shapeStartX + dx;
+                    obj.y = shapeStartY + dy;
+                } else if (activeHandle === 'rotate') {
+                    const angle = Math.atan2(pos.y - obj.y, pos.x - obj.x);
+                    obj.rotation = angle + Math.PI / 2;
+                } else {
+                    const cos = Math.cos(-shapeStartAngle);
+                    const sin = Math.sin(-shapeStartAngle);
+                    const rotDx = dx * cos - dy * sin;
+                    const rotDy = dx * sin + dy * cos;
+
+                    let newW = shapeStartW;
+                    let newH = shapeStartH;
+
+                    if (activeHandle.includes('r')) newW = Math.max(10, shapeStartW + rotDx * 2);
+                    if (activeHandle.includes('l')) newW = Math.max(10, shapeStartW - rotDx * 2);
+                    if (activeHandle.includes('b')) newH = Math.max(10, shapeStartH + rotDy * 2);
+                    if (activeHandle.includes('t')) newH = Math.max(10, shapeStartH - rotDy * 2);
+                    if (activeHandle === 'mr' || activeHandle === 'ml') newH = shapeStartH;
+                    if (activeHandle === 'tm' || activeHandle === 'bm') newW = shapeStartW;
+
+                    obj.w = newW;
+                    obj.h = newH;
+                }
+
+                restoreCanvasStateFromMemory();
+                drawVectorShape(obj, true);
+                return;
+            }
+
+            if (!isDrawing || activeTool === 'fillbucket') return;
+            if (activeTool === 'pencil') {
+                renderPencilTextureSegment(lastX, lastY, pos.x, pos.y);
+            } else {
+                ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(pos.x, pos.y); ctx.stroke();
+            }
+            lastX = pos.x; lastY = pos.y;
+        }
+
+        function terminateWorkspaceInteraction() {
+            if(isPanningWorkspace) {
+                isPanningWorkspace = false;
+                mainContainer.style.setProperty('--workspace-cursor', 'grab');
+            }
+            isDrawing = false;
+            isTransforming = false;
+            if (!activeShapeObject && activeTool !== 'dragspace') saveCanvasStateToMemory();
+        }
+
+        function renderPencilTextureSegment(x1, y1, x2, y2) {
+            const distance = Math.hypot(x2 - x1, y2 - y1), steps = Math.max(1, Math.floor(distance)); 
+            ctx.save();
+            let r=0, g=0, b=0;
+            if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(activeColor)){
+                let c = activeColor.substring(1); if(c.length == 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+                r = parseInt(c.substring(0,2), 16); g = parseInt(c.substring(2,4), 16); b = parseInt(c.substring(4,6), 16);
+            }
+            for (let i = 0; i < steps; i++) {
+                const t = i / steps;
+                const cx = x1 + (x2 - x1) * t, cy = y1 + (y2 - y1) * t;
+                const density = Math.max(2, Math.floor(activeThickness * (pencilDensity * 2.5)));
+                for (let d = 0; d < density; d++) {
+                    const radius = (activeThickness / 2) * Math.sqrt(Math.random());
+                    const angle = Math.random() * Math.PI * 2;
+                    const dotX = cx + radius * Math.cos(angle), dotY = cy + radius * Math.sin(angle);
+                    const organicOpacity = (Math.random() * 0.25) * (1 - (radius / (activeThickness / 2))) * globalAlphaMod;
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${organicOpacity})`;
+                    ctx.fillRect(dotX, dotY, Math.random() > 0.75 ? 1.5 : 1.0, Math.random() > 0.75 ? 1.5 : 1.0);
+                }
+            }
+            ctx.restore();
+        }
+
+        function executeSmartFloodFill(startX, startY, hexFillColor) {
+            if (startX < 0 || startX >= canvas.width || startY < 0 || startY >= canvas.height) return;
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imgData.data;
+            let targetR = 0, targetG = 0, targetB = 0;
+            if(/^#([A-Fa-f0-9]{3}){1,2}$/.test(hexFillColor)){
+                let c = hexFillColor.substring(1); if(c.length == 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+                targetR = parseInt(c.substring(0,2), 16); targetG = parseInt(c.substring(2,4), 16); targetB = parseInt(c.substring(4,6), 16);
+            }
+            const startPos = (startY * canvas.width + startX) * 4;
+            const baseR = data[startPos], baseG = data[startPos+1], baseB = data[startPos+2], baseA = data[startPos+3];
+            const targetA = Math.floor(globalAlphaMod * 255);
+            
+            if (baseR === targetR && baseG === targetG && baseB === targetB && baseA === targetA) return;
+
+            const pixelStack = [[startX, startY]];
+            const width = canvas.width, height = canvas.height;
+
+            while (pixelStack.length > 0) {
+                const curPixel = pixelStack.pop();
+                const cx = curPixel[0], cy = curPixel[1];
+                let idx = (cy * width + cx) * 4;
+
+                while (cy >= 0 && matchBaseColor(idx, data, baseR, baseG, baseB, baseA)) { idx -= width * 4; pixelStack.yIdx--; }
+                idx += width * 4;
+                let trackingY = cy;
+                let reachLeft = false, reachRight = false;
+
+                while (trackingY < height && matchBaseColor(idx, data, baseR, baseG, baseB, baseA)) {
+                    data[idx] = targetR; data[idx+1] = targetG; data[idx+2] = targetB; data[idx+3] = targetA;
+                    if (cx > 0) {
+                        if (matchBaseColor(idx - 4, data, baseR, baseG, baseB, baseA)) {
+                            if (!reachLeft) { pixelStack.push([cx - 1, trackingY]); reachLeft = true; }
+                        } else if (reachLeft) { reachLeft = false; }
+                    }
+                    if (cx < width - 1) {
+                        if (matchBaseColor(idx + 4, data, baseR, baseG, baseB, baseA)) {
+                            if (!reachRight) { pixelStack.push([cx + 1, trackingY]); reachRight = true; }
+                        } else if (reachRight) { reachRight = false; }
+                    }
+                    trackingY++; idx += width * 4;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        function matchBaseColor(idx, data, br, bg, bb, ba) {
+            return Math.abs(data[idx] - br) < 15 && Math.abs(data[idx+1] - bg) < 15 && Math.abs(data[idx+2] - bb) < 15 && Math.abs(data[idx+3] - ba) < 15;
+        }
+
+        function drawVectorShape(obj, drawControlsUI) {
+            ctx.save();
+            ctx.globalAlpha = obj.opacity;
+
+            if (obj.type === 'image') {
+                ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotation);
+                const hw = obj.w / 2, hh = obj.h / 2;
+                ctx.drawImage(obj.imageEl, -hw, -hh, obj.w, obj.h);
+                if (drawControlsUI) {
+                    ctx.strokeStyle = 'rgba(167, 139, 250, 0.6)'; ctx.lineWidth = 1.5; ctx.strokeRect(-hw, -hh, obj.w, obj.h);
+                    ctx.beginPath(); ctx.moveTo(0, -hh); ctx.lineTo(0, -hh - 30); ctx.stroke();
+                    const handles = getLocalHandles(obj);
+                    ctx.lineWidth = 2;
+                    for (let key in handles) {
+                        ctx.fillStyle = key === 'rotate' ? '#ec4899' : key === 'center' ? '#22c55e' : '#a855f7';
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.beginPath(); ctx.arc(handles[key].x, handles[key].y, key === 'center' ? handleRadius + 2 : handleRadius, 0, Math.PI * 2);
+                        ctx.fill(); ctx.stroke();
+                    }
+                }
+                ctx.restore(); return;
+            }
+
+            ctx.lineWidth = Math.max(2, activeThickness / 2);
+            ctx.strokeStyle = obj.color; ctx.fillStyle = obj.color;
+
+            if (obj.type === 'line') {
+                ctx.beginPath(); ctx.moveTo(obj.x1, obj.y1); ctx.lineTo(obj.x2, obj.y2); ctx.stroke();
+                if (drawControlsUI) {
+                    ctx.fillStyle = '#6366f1';
+                    ctx.beginPath(); ctx.arc(obj.x1, obj.y1, handleRadius + 2, 0, Math.PI*2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(obj.x2, obj.y2, handleRadius + 2, 0, Math.PI*2); ctx.fill();
+                }
+                ctx.restore(); return;
+            }
+
+            ctx.translate(obj.x, obj.y); ctx.rotate(obj.rotation);
+            const hw = obj.w / 2, hh = obj.h / 2;
+            ctx.beginPath();
+
+            switch(obj.type) {
+                case 'rectangle': if (obj.mode === 'filled') ctx.fillRect(-hw, -hh, obj.w, obj.h); else ctx.strokeRect(-hw, -hh, obj.w, obj.h); break;
+                case 'circle': ctx.arc(0, 0, obj.w / 2, 0, Math.PI * 2); if (obj.mode === 'filled') ctx.fill(); else ctx.stroke(); break;
+                case 'ellipse': ctx.ellipse(0, 0, obj.w / 2, obj.h / 2, 0, 0, Math.PI * 2); if (obj.mode === 'filled') ctx.fill(); else ctx.stroke(); break;
+                case 'triangle': ctx.moveTo(0, -hh); ctx.lineTo(hw, hh); ctx.lineTo(-hw, hh); ctx.closePath(); if (obj.mode === 'filled') ctx.fill(); else ctx.stroke(); break;
+                case 'star':
+                    let rot = Math.PI / 2 * 3, step = Math.PI / 5;
+                    for (let i = 0; i < 5; i++) { ctx.lineTo(Math.cos(rot) * hw, Math.sin(rot) * hh); rot += step; ctx.lineTo(Math.cos(rot) * (hw/2), Math.sin(rot) * (hh/2)); rot += step; }
+                    ctx.closePath(); if (obj.mode === 'filled') ctx.fill(); else ctx.stroke(); break;
+            }
+
+            if (drawControlsUI) {
+                ctx.strokeStyle = 'rgba(99, 102, 241, 0.4)'; ctx.lineWidth = 1.5; ctx.strokeRect(-hw, -hh, obj.w, obj.h);
+                ctx.beginPath(); ctx.moveTo(0, -hh); ctx.lineTo(0, -hh - 30); ctx.stroke();
+
+                const handles = getLocalHandles(obj);
+                ctx.fillStyle = '#6366f1'; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+                for (let key in handles) {
+                    if (key === 'rotate') ctx.fillStyle = '#ec4899';
+                    else if (key === 'center') ctx.fillStyle = '#22c55e';
+                    else ctx.fillStyle = '#6366f1';
+                    ctx.beginPath(); ctx.arc(handles[key].x, handles[key].y, key === 'center' ? handleRadius + 2 : handleRadius, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        canvas.addEventListener('mousedown', initiateWorkspaceInteraction);
+        canvas.addEventListener('mousemove', trackWorkspaceInteraction);
+        window.addEventListener('mouseup', terminateWorkspaceInteraction);
+
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetTool = e.target.closest('.tool-btn').getAttribute('data-tool');
+                switchTool(targetTool);
+            });
+        });
+
+        document.querySelectorAll('.swatch').forEach(sw => {
+            sw.addEventListener('click', (e) => {
+                document.querySelectorAll('.swatch').forEach(s => s.classList.remove('ring-2', 'ring-indigo-500'));
+                e.target.classList.add('ring-2', 'ring-indigo-500');
+                activeColor = e.target.getAttribute('data-color'); customColor.value = activeColor;
+                configureActiveEngineStyles();
+            });
+        });
+
+        customColor.addEventListener('input', (e) => { activeColor = e.target.value; configureActiveEngineStyles(); });
+        thicknessSlider.addEventListener('input', (e) => { activeThickness = e.target.value; thicknessValue.textContent = `${activeThickness}px`; configureActiveEngineStyles(); });
+        opacitySlider.addEventListener('input', (e) => { globalAlphaMod = e.target.value / 100; opacityValue.textContent = `${e.target.value}%`; configureActiveEngineStyles(); });
+        densitySlider.addEventListener('input', (e) => { pencilDensity = e.target.value / 100; densityValue.textContent = `${e.target.value}%`; });
+
+        const hollowModeBtn = document.getElementById('hollowModeBtn'), filledModeBtn = document.getElementById('filledModeBtn');
+        hollowModeBtn.addEventListener('click', () => { shapeMode = 'hollow'; hollowModeBtn.className='py-1.5 rounded-full font-black text-center bg-indigo-600 text-white shadow-lg w-full'; filledModeBtn.className='py-1.5 rounded-full font-black text-center w-full text-slate-300'; });
+        filledModeBtn.addEventListener('click', () => { shapeMode = 'filled'; filledModeBtn.className='py-1.5 rounded-full font-black text-center bg-indigo-600 text-white shadow-lg w-full'; hollowModeBtn.className='py-1.5 rounded-full font-black text-center w-full text-slate-300'; });
+
+        clearBtn.addEventListener('click', () => { if(confirm("Erase your entire drawing canvas?")) { initializeWorksheetResolution(); activeShapeObject=null; } });
+        downloadBtn.addEventListener('click', () => { finalizeAndCommitActiveShape(); const a = document.createElement('a'); a.download=`canvas-art-${Date.now()}.png`; a.href=canvas.toDataURL('image/png'); a.click(); });
+        document.querySelectorAll('.shape-preset').forEach(p => p.addEventListener('dragstart', (e) => e.dataTransfer.setData('text/plain', e.target.getAttribute('data-shape'))));
+
+        // ── Undo / Redo button wiring ──
+        document.getElementById('undoBtn').addEventListener('click', performUndo);
+        document.getElementById('redoBtn').addEventListener('click', performRedo);
+        document.getElementById('mobUndoBtn').addEventListener('click', performUndo);
+        document.getElementById('mobRedoBtn').addEventListener('click', performRedo);
+
+        /* ══════════════════════════════════════════
+           IMAGE DRAG-AND-DROP ONTO CANVAS
+        ══════════════════════════════════════════ */
+        // Allow image files to be dropped anywhere on the canvas
+        canvas.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+        canvas.addEventListener('drop', e => {
+            e.preventDefault();
+            // Check if it's an image file drop (from OS/browser)
+            const file = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                pushUndoState(); finalizeAndCommitActiveShape();
+                const reader = new FileReader();
+                reader.onload = evt => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const boundingBox = canvas.getBoundingClientRect();
+                        const dropX = e.clientX - boundingBox.left;
+                        const dropY = e.clientY - boundingBox.top;
+                        // Scale image to fit nicely (max 400px wide)
+                        const maxW = Math.min(400, canvas.width * 0.5);
+                        const ratio = img.width / img.height;
+                        const w = Math.min(img.width, maxW);
+                        const h = w / ratio;
+                        activeShapeObject = {
+                            type: 'image', imageEl: img,
+                            x: dropX, y: dropY, w, h,
+                            rotation: 0, opacity: 1
+                        };
+                        restoreCanvasStateFromMemory();
+                        drawVectorShape(activeShapeObject, true);
+                    };
+                    img.src = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+
+            // Otherwise it's a shape drag from sidebar
+            pushUndoState(); finalizeAndCommitActiveShape();
+            const shapeIdent = e.dataTransfer.getData('text/plain');
+            if (!shapeIdent) return;
+            const boundingBox = canvas.getBoundingClientRect();
+            const targetX = e.clientX - boundingBox.left, targetY = e.clientY - boundingBox.top;
+            const scale = Math.max(120, activeThickness * 8);
+            activeShapeObject = {
+                type: shapeIdent, x: targetX, y: targetY, w: scale, h: scale,
+                x1: targetX - 70, y1: targetY, x2: targetX + 70, y2: targetY,
+                rotation: 0, mode: shapeMode, opacity: globalAlphaMod,
+                color: matchBrushColorCheck.checked ? activeColor : '#ef4444'
+            };
+            restoreCanvasStateFromMemory(); drawVectorShape(activeShapeObject, true);
+        });
+
+        /* ══════════════════════════════════════════
+           TEXT TOOL  (clean rewrite)
+        ══════════════════════════════════════════ */
+        let textFontSize = 24, textFontFamily = "'Inter', sans-serif", textBold = false, textItalic = false;
+        let activeTextSession = null; // { canvasX, canvasY }
+
+        const fontControlsPanel = document.getElementById('fontControlsPanel');
+        const fontSizeSlider    = document.getElementById('fontSizeSlider');
+        const fontSizeValueEl   = document.getElementById('fontSizeValue');
+        const fontFamilySelect  = document.getElementById('fontFamilySelect');
+        const boldToggleBtn     = document.getElementById('boldToggleBtn');
+        const italicToggleBtn   = document.getElementById('italicToggleBtn');
+        const textInputOverlay  = document.getElementById('textInputOverlay');
+        const textInputArea     = document.getElementById('textInputArea');
+        const textCommitBtn     = document.getElementById('textCommitBtn');
+        const textCancelBtn     = document.getElementById('textCancelBtn');
+
+        function buildFontString(px) {
+            return `${textItalic ? 'italic ' : ''}${textBold ? 'bold ' : ''}${px}px ${textFontFamily}`;
+        }
+
+        // Map a canvas-pixel point to screen (fixed) coordinates, accounting for CSS scaling
+        function canvasToScreen(cx, cy) {
+            const r = canvas.getBoundingClientRect();
+            const scaleX = r.width  / canvas.width;
+            const scaleY = r.height / canvas.height;
+            return { x: r.left + cx * scaleX, y: r.top + cy * scaleY };
+        }
+
+        function syncTextOverlayStyle() {
+            if (!activeTextSession) return;
+            const r = canvas.getBoundingClientRect();
+            const scaleX = r.width  / canvas.width;
+            const scaleY = r.height / canvas.height;
+            // Font size scaled to match canvas pixels on screen
+            const screenFontPx = Math.round(textFontSize * scaleY);
+            textInputArea.style.font       = buildFontString(screenFontPx);
+            textInputArea.style.color      = activeColor;
+            textInputArea.style.lineHeight = '1.3';
+            textInputArea.style.minWidth   = Math.max(120, screenFontPx * 5) + 'px';
+        }
+
+        function openTextSession(canvasX, canvasY) {
+            if (activeTextSession) commitText(); // commit any previous session
+            activeTextSession = { canvasX, canvasY };
+
+            const sc = canvasToScreen(canvasX, canvasY);
+            // Offset upward so the textarea top aligns with the click, with ~38px for the confirm bar above
+            const CONFIRM_BAR_H = 38;
+            let top = sc.y - CONFIRM_BAR_H;
+            // Clamp so it doesn't go off screen top
+            if (top < 8) top = 8;
+            textInputOverlay.style.left = Math.max(8, sc.x) + 'px';
+            textInputOverlay.style.top  = top + 'px';
+            textInputOverlay.style.display = 'block';
+
+            textInputArea.value = '';
+            textInputArea.style.height = '';
+            syncTextOverlayStyle();
+            setTimeout(() => { textInputArea.focus(); textInputArea.select(); }, 20);
+        }
+
+        function commitText() {
+            if (!activeTextSession) return;
+            const rawText = textInputArea.value;
+            if (rawText.trim()) {
+                pushUndoState();
+                ctx.save();
+                ctx.font        = buildFontString(textFontSize);
+                ctx.fillStyle   = activeColor;
+                ctx.globalAlpha = globalAlphaMod;
+                ctx.textBaseline = 'top';
+                const lineH = textFontSize * 1.35;
+                rawText.split('\n').forEach((line, i) => {
+                    ctx.fillText(line, activeTextSession.canvasX, activeTextSession.canvasY + i * lineH);
+                });
+                ctx.restore();
+                saveCanvasStateToMemory();
+            }
+            closeTextSession();
+        }
+
+        function closeTextSession() {
+            activeTextSession = null;
+            textInputOverlay.style.display = 'none';
+            textInputArea.value = '';
+        }
+
+        // Auto-grow textarea height
+        textInputArea.addEventListener('input', () => {
+            textInputArea.style.height = 'auto';
+            textInputArea.style.height = textInputArea.scrollHeight + 'px';
+        });
+        // Ctrl/Cmd+Enter commits; plain Enter = new line (default)
+        textInputArea.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitText(); }
+        });
+
+        textCommitBtn.addEventListener('click', commitText);
+        textCancelBtn.addEventListener('click', closeTextSession);
+
+        // Sidebar controls
+        fontSizeSlider.addEventListener('input', e => {
+            textFontSize = parseInt(e.target.value);
+            fontSizeValueEl.textContent = textFontSize + 'px';
+            syncTextOverlayStyle();
+        });
+        fontFamilySelect.addEventListener('change', e => { textFontFamily = e.target.value; syncTextOverlayStyle(); });
+        boldToggleBtn.addEventListener('click', () => {
+            textBold = !textBold;
+            boldToggleBtn.style.cssText = textBold
+                ? 'background:rgba(99,102,241,0.25);color:#a5b4fc;border-color:rgba(99,102,241,0.5)'
+                : '';
+            syncTextOverlayStyle();
+        });
+        italicToggleBtn.addEventListener('click', () => {
+            textItalic = !textItalic;
+            italicToggleBtn.style.cssText = textItalic
+                ? 'background:rgba(99,102,241,0.25);color:#a5b4fc;border-color:rgba(99,102,241,0.5)'
+                : '';
+            syncTextOverlayStyle();
+        });
+
+        /* ══════════════════════════════════════════
+           SHORTCUTS MODAL
+        ══════════════════════════════════════════ */
+        const shortcutsModal = document.getElementById('shortcutsModal');
+        function openShortcutsModal() { shortcutsModal.classList.remove('hidden'); shortcutsModal.classList.add('flex'); }
+        function closeShortcutsModal() { shortcutsModal.classList.add('hidden'); shortcutsModal.classList.remove('flex'); }
+        document.getElementById('shortcutsBtn').addEventListener('click', openShortcutsModal);
+        document.getElementById('closeShortcutsBtn').addEventListener('click', closeShortcutsModal);
+        shortcutsModal.addEventListener('click', e => { if (e.target === shortcutsModal) closeShortcutsModal(); });
+
+        /* ══════════════════════════════════════════
+           KEYBOARD SHORTCUTS (all of them)
+        ══════════════════════════════════════════ */
+        document.addEventListener('keydown', e => {
+            // Don't fire tool shortcuts while typing in textarea or input
+            const tag = document.activeElement && document.activeElement.tagName;
+            const inText = tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT';
+
+            // Undo / Redo (always)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); performUndo(); return; }
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); performRedo(); return; }
+
+            // Export
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                finalizeAndCommitActiveShape();
+                const a = document.createElement('a'); a.download = `canvas-art-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click();
+                return;
+            }
+
+            if (inText) {
+                // Commit text with Escape
+                if (e.key === 'Escape') { e.preventDefault(); commitText(); }
+                return;
+            }
+
+            // Escape: commit active shape / close shortcuts
+            if (e.key === 'Escape') {
+                if (!shortcutsModal.classList.contains('hidden')) { closeShortcutsModal(); return; }
+                if (activeShapeObject) { pushUndoState(); finalizeAndCommitActiveShape(); }
+                return;
+            }
+
+            // Open shortcuts with ?
+            if (e.key === '?') { openShortcutsModal(); return; }
+
+            // Brush size
+            if (e.key === ']') {
+                activeThickness = Math.min(80, parseInt(activeThickness) + 2);
+                thicknessSlider.value = activeThickness; thicknessValue.textContent = activeThickness + 'px';
+                configureActiveEngineStyles(); return;
+            }
+            if (e.key === '[') {
+                activeThickness = Math.max(1, parseInt(activeThickness) - 2);
+                thicknessSlider.value = activeThickness; thicknessValue.textContent = activeThickness + 'px';
+                configureActiveEngineStyles(); return;
+            }
+
+            // Space → pan
+            if (e.key === ' ' && !e.ctrlKey && !e.metaKey) { e.preventDefault(); switchTool('dragspace'); return; }
+
+            // Tool hotkeys
+            const toolMap = { 'p': 'pen', 'n': 'pencil', 'b': 'paintbrush', 'm': 'marker', 'e': 'eraser', 'f': 'fillbucket', 't': 'text' };
+            const mapped = toolMap[e.key.toLowerCase()];
+            if (mapped) { switchTool(mapped); return; }
+        });
+
+        // Space keyup → restore previous tool
+        let toolBeforePan = 'pen';
+        document.addEventListener('keyup', e => {
+            if (e.key === ' ' && activeTool === 'dragspace') { switchTool(toolBeforePan); }
+        });
+
+        function switchTool(tool) {
+            if (tool === 'dragspace' && activeTool !== 'dragspace') toolBeforePan = activeTool;
+            finalizeAndCommitActiveShape();
+            activeTool = tool;
+            configureActiveEngineStyles();
+            syncAllToolBtns(tool);
+            // Show/hide font panel
+            if (fontControlsPanel) fontControlsPanel.style.display = tool === 'text' ? 'block' : 'none';
+        }
+
+        /* ══════════════════════════════════════════
+           PORTRAIT / MOBILE LOGIC
+        ══════════════════════════════════════════ */
+
+        function isPortrait() { return window.innerHeight > window.innerWidth; }
+
+        function applyLayout() {
+            if (isPortrait()) {
+                document.body.classList.add('portrait');
+            } else {
+                document.body.classList.remove('portrait');
+                // Compute canvas start position from actual sidebar geometry
+                const sidebar = document.getElementById('desktopSidebar');
+                if (sidebar && canvasOffsetX === 0) {
+                    const sRect = sidebar.getBoundingClientRect();
+                    canvasOffsetX = sRect.right + 24;
+                    canvasOffsetY = sRect.top;
+                }
+            }
+            repositionCanvasFrameElement();
+        }
+
+        window.addEventListener('resize', () => { canvasOffsetX = 0; applyLayout(); });
+        window.addEventListener('orientationchange', () => setTimeout(applyLayout, 150));
+        applyLayout();
+
+        /* ── Drawer ── */
+        let currentDrawerTab = 'tools';
+
+        function openDrawer(tab) {
+            currentDrawerTab = tab || currentDrawerTab;
+            switchDrawerTab(currentDrawerTab, false);
+            document.getElementById('mobileDrawer').classList.remove('closed');
+        }
+        function closeDrawer() {
+            document.getElementById('mobileDrawer').classList.add('closed');
+        }
+
+        function switchDrawerTab(tab, shouldOpen = true) {
+            currentDrawerTab = tab;
+            document.querySelectorAll('.drawer-tab-panel').forEach(p => p.classList.add('hidden'));
+            document.querySelectorAll('.drawer-tab').forEach(t => {
+                const isActive = t.getAttribute('data-tab') === tab;
+                t.classList.toggle('active', isActive);
+                t.style.background = isActive ? 'rgba(99,102,241,0.25)' : '';
+                t.style.color = isActive ? 'var(--text-main)' : 'var(--text-muted)';
+                t.style.boxShadow = isActive ? 'inset 0 0 0 1.5px rgba(99,102,241,0.4)' : '';
+            });
+            const panel = document.getElementById('tab-' + tab);
+            if (panel) panel.classList.remove('hidden');
+            if (shouldOpen) openDrawer(null);
+        }
+        // Init tab styles on load
+        switchDrawerTab('tools', false);
+
+        /* ── Mobile tool buttons (bottom bar) ── */
+        document.querySelectorAll('.mob-tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.getAttribute('data-tool');
+                switchTool(tool);
+            });
+        });
+
+        /* ── Drawer tool buttons ── */
+        document.querySelectorAll('.drawer-tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tool = btn.getAttribute('data-tool');
+                switchTool(tool);
+                closeDrawer();
+            });
+        });
+
+        function syncAllToolBtns(tool) {
+            document.querySelectorAll('.mob-tool-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tool') === tool));
+            document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
+                const t = b.getAttribute('data-tool');
+                const base = (t === 'dragspace' || t === 'text')
+                    ? 'tool-btn w-full mb-2 flex items-center justify-center py-3 rounded-full border font-bold text-xs gap-2'
+                    : (t === 'fillbucket' || t === 'eraser')
+                        ? 'tool-btn py-3 text-center rounded-full border text-xs font-bold flex items-center justify-center gap-2'
+                        : 'tool-btn flex flex-col p-3 rounded-[1.25rem] border text-center';
+                b.className = base + (t === tool ? ' active border-indigo-500/30' : ' border-slate-700/10');
+            });
+        }
+
+        /* ── Mobile color swatches ── */
+        document.querySelectorAll('.mob-swatch').forEach(sw => {
+            sw.addEventListener('click', () => {
+                document.querySelectorAll('.mob-swatch').forEach(s => s.classList.remove('ring-2', 'ring-indigo-400'));
+                sw.classList.add('ring-2', 'ring-indigo-400');
+                activeColor = sw.getAttribute('data-color');
+                document.getElementById('mobCustomColor').value = activeColor;
+                document.getElementById('mobColorDot').style.background = activeColor;
+                configureActiveEngineStyles();
+            });
+        });
+
+        document.getElementById('mobCustomColor').addEventListener('input', e => {
+            activeColor = e.target.value;
+            document.getElementById('mobColorDot').style.background = activeColor;
+            configureActiveEngineStyles();
+        });
+
+        /* ── Mobile sliders ── */
+        document.getElementById('mobThicknessSlider').addEventListener('input', e => {
+            activeThickness = e.target.value;
+            document.getElementById('mobThicknessValue').textContent = activeThickness + 'px';
+            // Sync desktop slider
+            thicknessSlider.value = activeThickness;
+            thicknessValue.textContent = activeThickness + 'px';
+            configureActiveEngineStyles();
+        });
+        document.getElementById('mobOpacitySlider').addEventListener('input', e => {
+            globalAlphaMod = e.target.value / 100;
+            document.getElementById('mobOpacityValue').textContent = e.target.value + '%';
+            opacitySlider.value = e.target.value;
+            opacityValue.textContent = e.target.value + '%';
+            configureActiveEngineStyles();
+        });
+
+        /* ── Mobile shapes (tap to place center) ── */
+        document.querySelectorAll('.mob-shape-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                pushUndoState(); finalizeAndCommitActiveShape();
+                const shapeIdent = btn.getAttribute('data-shape');
+                const useColor = document.getElementById('mobMatchBrushColor').checked;
+                const cx = canvas.width / 2, cy = canvas.height / 2;
+                const scale = Math.max(120, activeThickness * 8);
+                activeShapeObject = {
+                    type: shapeIdent, x: cx, y: cy, w: scale, h: scale,
+                    x1: cx - 70, y1: cy, x2: cx + 70, y2: cy,
+                    rotation: 0, mode: shapeMode, opacity: globalAlphaMod,
+                    color: useColor ? activeColor : '#ef4444'
+                };
+                restoreCanvasStateFromMemory();
+                drawVectorShape(activeShapeObject, true);
+                closeDrawer();
+            });
+        });
+
+        /* ── Mobile shape mode ── */
+        document.getElementById('mobHollowBtn').addEventListener('click', () => {
+            shapeMode = 'hollow';
+            document.getElementById('mobHollowBtn').className = 'py-1.5 rounded-full font-black bg-indigo-600 text-white w-full text-center';
+            document.getElementById('mobFilledBtn').className = 'py-1.5 rounded-full font-black w-full text-center';
+            document.getElementById('mobFilledBtn').style.color = 'var(--text-muted)';
+        });
+        document.getElementById('mobFilledBtn').addEventListener('click', () => {
+            shapeMode = 'filled';
+            document.getElementById('mobFilledBtn').className = 'py-1.5 rounded-full font-black bg-indigo-600 text-white w-full text-center';
+            document.getElementById('mobHollowBtn').className = 'py-1.5 rounded-full font-black w-full text-center';
+            document.getElementById('mobHollowBtn').style.color = 'var(--text-muted)';
+        });
+
+        /* ── Mobile more-tab buttons ── */
+        document.getElementById('mobDownloadBtn').addEventListener('click', () => {
+            finalizeAndCommitActiveShape();
+            const a = document.createElement('a'); a.download = `canvas-art-${Date.now()}.png`; a.href = canvas.toDataURL('image/png'); a.click();
+        });
+        document.getElementById('mobClearBtn').addEventListener('click', () => {
+            if (confirm("Erase your entire drawing canvas?")) { initializeWorksheetResolution(); activeShapeObject = null; }
+        });
+        document.getElementById('mobThemeBtn').addEventListener('click', () => {
+            themeToggleBtn.click(); // reuse existing theme logic
+            const isDark = currentTheme === 'dark';
+            document.getElementById('mobThemeIcon').textContent = isDark ? '☀️' : '🌙';
+            document.getElementById('mobThemeLabel').textContent = isDark ? 'Light Mode' : 'Dark Mode';
+        });
+
+        /* ── Touch drawing support ── */
+        function getTouchPos(e) {
+            const t = e.touches[0] || e.changedTouches[0];
+            const rect = canvas.getBoundingClientRect();
+            return { x: t.clientX - rect.left, y: t.clientY - rect.top, clientX: t.clientX, clientY: t.clientY };
+        }
+
+        canvas.addEventListener('touchstart', e => {
+            e.preventDefault();
+            const pos = getTouchPos(e);
+            initiateWorkspaceInteraction({ clientX: pos.clientX, clientY: pos.clientY, ...pos });
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', e => {
+            e.preventDefault();
+            const pos = getTouchPos(e);
+            trackWorkspaceInteraction({ clientX: pos.clientX, clientY: pos.clientY, ...pos });
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', e => {
+            e.preventDefault();
+            terminateWorkspaceInteraction();
+        }, { passive: false });
+
+        /* ══════════════════════════════════════════
+           🥚 EASTER EGGS
+        ══════════════════════════════════════════ */
+
+        // ── 1. Konami Code → surprise canvas explosion of confetti shapes ──
+        const KONAMI = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+        let konamiIdx = 0;
+        document.addEventListener('keydown', e => {
+            if (e.key === KONAMI[konamiIdx]) { konamiIdx++; } else { konamiIdx = 0; }
+            if (konamiIdx === KONAMI.length) {
+                konamiIdx = 0;
+                showToast('🎮 CHEAT CODE ACTIVATED — PARTY MODE!', '#ec4899');
+                pushUndoState();
+                const shapes = ['circle','rectangle','star','triangle','ellipse'];
+                const cols = ['#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6','#ec4899','#06b6d4'];
+                for (let i = 0; i < 40; i++) {
+                    setTimeout(() => {
+                        ctx.save();
+                        ctx.globalAlpha = 0.55 + Math.random() * 0.45;
+                        ctx.fillStyle = cols[Math.floor(Math.random() * cols.length)];
+                        ctx.strokeStyle = cols[Math.floor(Math.random() * cols.length)];
+                        ctx.lineWidth = 3 + Math.random() * 4;
+                        const x = Math.random() * canvas.width;
+                        const y = Math.random() * canvas.height;
+                        const r = 20 + Math.random() * 80;
+                        const s = shapes[Math.floor(Math.random() * shapes.length)];
+                        ctx.translate(x, y); ctx.rotate(Math.random() * Math.PI * 2);
+                        ctx.beginPath();
+                        if (s === 'circle') { ctx.arc(0, 0, r, 0, Math.PI*2); ctx.fill(); }
+                        else if (s === 'rectangle') { ctx.fillRect(-r, -r/2, r*2, r); }
+                        else if (s === 'triangle') { ctx.moveTo(0,-r); ctx.lineTo(r,r); ctx.lineTo(-r,r); ctx.closePath(); ctx.fill(); }
+                        else if (s === 'ellipse') { ctx.ellipse(0,0,r,r/2,0,0,Math.PI*2); ctx.fill(); }
+                        else { // star
+                            let rot2 = -Math.PI/2, step2 = Math.PI/5;
+                            for(let j=0;j<5;j++){ctx.lineTo(Math.cos(rot2)*r,Math.sin(rot2)*r);rot2+=step2;ctx.lineTo(Math.cos(rot2)*(r/2),Math.sin(rot2)*(r/2));rot2+=step2;}
+                            ctx.closePath(); ctx.fill();
+                        }
+                        ctx.restore();
+                        if (i === 39) saveCanvasStateToMemory();
+                    }, i * 40);
+                }
+            }
+        });
+
+        // ── 2. Secret word detector — type "paint" anywhere (not in text tool) to reveal a tiny message ──
+        let secretBuffer = '';
+        document.addEventListener('keypress', e => {
+            if (document.activeElement && (document.activeElement.tagName==='TEXTAREA'||document.activeElement.tagName==='INPUT')) return;
+            secretBuffer = (secretBuffer + e.key).slice(-5).toLowerCase();
+            if (secretBuffer === 'paint') { secretBuffer=''; showToast('🎨 Did you know? This app was painted with love (and too much coffee) ☕', '#6366f1'); }
+            if (secretBuffer.slice(-3) === 'art') { secretBuffer=''; showToast('🖼️ You ARE the art, bestie 💅', '#ec4899'); }
+        });
+
+        // ── 3. Click the version badge 5× to enable "drunk mode" (canvas wobbles) ──
+        let badgeClicks = 0, drunkMode = false, drunkInterval = null;
+        const versionBadge = document.querySelector('.header-label.text-\\[9px\\]');
+        if (versionBadge) versionBadge.style.cursor = 'pointer';
+        document.querySelectorAll('.header-label').forEach(el => {
+            if (el.textContent.includes('v10')) {
+                el.style.cursor = 'pointer';
+                el.addEventListener('click', () => {
+                    badgeClicks++;
+                    if (badgeClicks === 3) showToast('👀 Keep clicking...', '#94a3b8');
+                    if (badgeClicks >= 5) {
+                        badgeClicks = 0;
+                        drunkMode = !drunkMode;
+                        if (drunkMode) {
+                            showToast('🍺 DRUNK MODE ON — canvas feeling a lil wobbly', '#f97316');
+                            let t = 0;
+                            drunkInterval = setInterval(() => {
+                                t += 0.08;
+                                canvas.style.transform = `rotate(${Math.sin(t)*1.8}deg) translate(${Math.sin(t*1.3)*6}px, ${Math.cos(t)*4}px)`;
+                            }, 30);
+                        } else {
+                            clearInterval(drunkInterval);
+                            canvas.style.transform = '';
+                            showToast('🧃 Sobered up. Canvas is stable again.', '#22c55e');
+                        }
+                    }
+                });
+            }
+        });
+
+        // ── 4. Triple-click the Export button rapidly to stamp a hidden cat ──
+        let exportClickTimes = [];
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const now = Date.now();
+            exportClickTimes = exportClickTimes.filter(t => now - t < 600);
+            exportClickTimes.push(now);
+            if (exportClickTimes.length >= 3) {
+                exportClickTimes = [];
+                ctx.save();
+                ctx.font = 'bold 80px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.globalAlpha = 0.9;
+                ctx.fillStyle = activeColor;
+                ctx.fillText('🐱', canvas.width/2, canvas.height/2);
+                ctx.font = 'bold 28px Georgia'; ctx.globalAlpha = 0.7;
+                ctx.fillText('meow', canvas.width/2, canvas.height/2 + 72);
+                ctx.restore();
+                saveCanvasStateToMemory();
+                showToast('🐱 A wild cat appeared! Triple-clicking Export... are you okay?', '#f97316');
+            }
+        });
+
+        // ── 5. Move the cursor in a circle fast (dizzy detection) → show a fun tip ──
+        let lastMouseAngles = [], lastMouseCx = 0, lastMouseCy = 0;
+        let dizzyFired = false;
+        document.addEventListener('mousemove', e => {
+            const cx = e.clientX, cy = e.clientY;
+            const angle = Math.atan2(cy - lastMouseCy, cx - lastMouseCx);
+            lastMouseAngles.push(angle);
+            if (lastMouseAngles.length > 60) lastMouseAngles.shift();
+            lastMouseCx = cx; lastMouseCy = cy;
+            if (!dizzyFired && lastMouseAngles.length === 60) {
+                let totalTurn = 0;
+                for (let i = 1; i < lastMouseAngles.length; i++) {
+                    let d = lastMouseAngles[i] - lastMouseAngles[i-1];
+                    if (d > Math.PI) d -= Math.PI*2;
+                    if (d < -Math.PI) d += Math.PI*2;
+                    totalTurn += d;
+                }
+                if (Math.abs(totalTurn) > Math.PI * 4) {
+                    dizzyFired = true;
+                    showToast('🌀 Getting dizzy watching you spin that cursor around...', '#8b5cf6');
+                    setTimeout(() => { dizzyFired = false; }, 10000);
+                }
+            }
+        });
+
+        // ── 6. Click 10× rapidly on empty space → shattered screen! Click 3× to repair ──
+        (function() {
+            let rapidClicks = [], shatterActive = false, repairClicks = 0;
+            let shatterEl = null, shatterOrigin = { x: 0, y: 0 };
+
+            // Generate a believable glass shatter SVG centered at (ox, oy) in a W×H viewport
+            function buildShatterSVG(ox, oy, W, H) {
+                // Crack lines radiate outward from origin at random angles
+                const NUM_CRACKS = 18;
+                const NUM_SECONDARY = 28;
+                let paths = '';
+                const angles = [];
+                for (let i = 0; i < NUM_CRACKS; i++) {
+                    angles.push((i / NUM_CRACKS) * Math.PI * 2 + (Math.random() - 0.5) * 0.4);
+                }
+                // Primary cracks — long, to edge
+                angles.forEach(a => {
+                    const len = Math.max(W, H) * (0.55 + Math.random() * 0.7);
+                    const wobble1x = ox + Math.cos(a) * len * 0.35 + (Math.random()-0.5)*60;
+                    const wobble1y = oy + Math.sin(a) * len * 0.35 + (Math.random()-0.5)*60;
+                    const ex = ox + Math.cos(a) * len;
+                    const ey = oy + Math.sin(a) * len;
+                    paths += `<path d="M${ox},${oy} Q${wobble1x},${wobble1y} ${ex},${ey}" 
+                        stroke="rgba(255,255,255,0.75)" stroke-width="${0.8 + Math.random()*1.2}" fill="none"/>`;
+                    // Branch crack
+                    const branchA = a + (Math.random()-0.5) * 1.1;
+                    const blen = len * (0.2 + Math.random() * 0.35);
+                    const bsx = ox + Math.cos(a) * len * (0.25 + Math.random()*0.3);
+                    const bsy = oy + Math.sin(a) * len * (0.25 + Math.random()*0.3);
+                    paths += `<path d="M${bsx},${bsy} L${bsx+Math.cos(branchA)*blen},${bsy+Math.sin(branchA)*blen}" 
+                        stroke="rgba(255,255,255,0.5)" stroke-width="${0.5+Math.random()*0.8}" fill="none"/>`;
+                });
+                // Secondary web cracks between primaries
+                for (let i = 0; i < NUM_SECONDARY; i++) {
+                    const a1 = angles[Math.floor(Math.random()*angles.length)];
+                    const a2 = angles[Math.floor(Math.random()*angles.length)];
+                    const r1 = 60 + Math.random() * 200;
+                    const r2 = 60 + Math.random() * 200;
+                    const sx = ox + Math.cos(a1)*r1, sy = oy + Math.sin(a1)*r1;
+                    const ex = ox + Math.cos(a2)*r2, ey = oy + Math.sin(a2)*r2;
+                    paths += `<path d="M${sx},${sy} L${ex},${ey}" 
+                        stroke="rgba(255,255,255,0.3)" stroke-width="${0.4+Math.random()*0.6}" fill="none"/>`;
+                }
+                // Shards — polygons near origin with glass-like fill + glint
+                for (let i = 0; i < 22; i++) {
+                    const a = Math.random() * Math.PI * 2;
+                    const r = 30 + Math.random() * 120;
+                    const pts = [];
+                    for (let j = 0; j < 4; j++) {
+                        const ja = a + j * (Math.PI*2/4) + (Math.random()-0.5)*0.7;
+                        const jr = r * (0.4 + Math.random()*0.7);
+                        pts.push(`${ox+Math.cos(ja)*jr},${oy+Math.sin(ja)*jr}`);
+                    }
+                    const opacity = 0.06 + Math.random() * 0.14;
+                    paths += `<polygon points="${pts.join(' ')}" 
+                        fill="rgba(200,220,255,${opacity})" stroke="rgba(255,255,255,0.4)" stroke-width="0.5"/>`;
+                    // Glint highlight on some shards
+                    if (Math.random() > 0.55) {
+                        const gx = ox + Math.cos(a)*r*0.5, gy = oy + Math.sin(a)*r*0.5;
+                        paths += `<line x1="${gx}" y1="${gy}" x2="${gx+Math.cos(a+0.5)*18}" y2="${gy+Math.sin(a+0.5)*18}"
+                            stroke="rgba(255,255,255,0.7)" stroke-width="1.2" stroke-linecap="round"/>`;
+                    }
+                }
+                // Dark hole at impact point
+                paths += `
+                    <radialGradient id="holeG" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#000" stop-opacity="1"/>
+                        <stop offset="60%" stop-color="#0a0a1a" stop-opacity="0.95"/>
+                        <stop offset="100%" stop-color="#000" stop-opacity="0"/>
+                    </radialGradient>
+                    <circle cx="${ox}" cy="${oy}" r="52" fill="url(#holeG)"/>
+                    <circle cx="${ox}" cy="${oy}" r="22" fill="#000"/>
+                    <circle cx="${ox}" cy="${oy}" r="18" fill="#050510"/>`;
+                // Outer vignette darkening
+                paths += `
+                    <radialGradient id="vigG" cx="50%" cy="50%" r="50%">
+                        <stop offset="40%" stop-color="transparent"/>
+                        <stop offset="100%" stop-color="rgba(0,0,0,0.55)"/>
+                    </radialGradient>
+                    <rect x="0" y="0" width="${W}" height="${H}" fill="url(#vigG)"/>`;
+                return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" 
+                    style="position:absolute;inset:0;width:100%;height:100%">${paths}</svg>`;
+            }
+
+            function triggerShatter(x, y) {
+                shatterActive = true;
+                repairClicks = 0;
+                shatterOrigin = { x, y };
+                // Build overlay
+                shatterEl = document.createElement('div');
+                shatterEl.id = 'shatterOverlay';
+                shatterEl.style.cssText = `
+                    position:fixed;inset:0;z-index:8888;pointer-events:all;
+                    background:rgba(0,0,0,0.18);
+                    backdrop-filter:blur(0.4px);
+                    animation:shatterIn 0.18s cubic-bezier(0.22,1,0.36,1) both;
+                    cursor:pointer;`;
+                shatterEl.innerHTML = buildShatterSVG(x, y, window.innerWidth, window.innerHeight);
+                document.body.appendChild(shatterEl);
+                // Style + shake
+                document.body.style.animation = 'screenShake 0.35s cubic-bezier(0.36,0.07,0.19,0.97)';
+                setTimeout(() => { document.body.style.animation = ''; }, 360);
+                showToast('💥 Cracked! Click the screen 3 times to repair it...', '#94a3b8');
+                shatterEl.addEventListener('click', handleRepairClick);
+            }
+
+            function handleRepairClick() {
+                repairClicks++;
+                if (repairClicks === 1) {
+                    showToast('🔨 Repairing... (2 more clicks)', '#6366f1');
+                    // Fade some cracks — reduce SVG opacity slightly
+                    const svg = shatterEl.querySelector('svg');
+                    if (svg) svg.style.transition = 'opacity 0.4s';
+                    if (svg) svg.style.opacity = '0.6';
+                } else if (repairClicks === 2) {
+                    showToast('🔧 Almost there... (1 more click)', '#a855f7');
+                    const svg = shatterEl.querySelector('svg');
+                    if (svg) svg.style.opacity = '0.25';
+                } else if (repairClicks >= 3) {
+                    // Repair!
+                    shatterEl.style.transition = 'opacity 0.5s, backdrop-filter 0.5s';
+                    shatterEl.style.opacity = '0';
+                    setTimeout(() => {
+                        shatterEl.remove();
+                        shatterEl = null;
+                        shatterActive = false;
+                        repairClicks = 0;
+                        rapidClicks = [];
+                        showToast('✨ Screen repaired! Good as new.', '#22c55e');
+                    }, 520);
+                }
+            }
+
+            // Listen for rapid clicks on empty space (not buttons/inputs)
+            document.addEventListener('click', e => {
+                if (shatterActive) return;
+                // Ignore if clicking a button, input, select, or known interactive element
+                const tag = e.target.tagName;
+                if (['BUTTON','INPUT','SELECT','TEXTAREA','A','LABEL','SVG','PATH','CIRCLE','RECT','POLYGON','LINE','ELLIPSE'].includes(tag)) return;
+                if (e.target.closest('button, input, select, textarea, a, [role="button"]')) return;
+                const now = Date.now();
+                rapidClicks = rapidClicks.filter(t => now - t < 1800);
+                rapidClicks.push(now);
+                if (rapidClicks.length >= 10) {
+                    rapidClicks = [];
+                    triggerShatter(e.clientX, e.clientY);
+                }
+            });
+        })();
+
+        // ── Toast helper ──
+        function showToast(msg, color = '#6366f1') {
+            const t = document.createElement('div');
+            t.textContent = msg;
+            t.style.cssText = `position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+                background:rgba(15,23,42,0.97);color:#f8fafc;padding:10px 20px;border-radius:99px;
+                font-size:12px;font-weight:700;z-index:9999;pointer-events:none;
+                border:1.5px solid ${color};box-shadow:0 4px 24px rgba(0,0,0,0.5);
+                transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;max-width:90vw;text-align:center;`;
+            document.body.appendChild(t);
+            requestAnimationFrame(() => { t.style.transform = 'translateX(-50%) translateY(0)'; t.style.opacity = '1'; });
+            setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(-50%) translateY(10px)'; setTimeout(()=>t.remove(),400); }, 4000);
+        }
+    </script>
+
+</body>
+</html>
